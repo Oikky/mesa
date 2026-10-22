@@ -5,9 +5,12 @@ Discord (.env), ligar com o Windows e já abrir. Pode rodar de novo quando quise
 preenchido fica (Enter mantém).
 
   instalar.py            instalação completa
-  instalar.py --chaves   só trocar as chaves do Spotify/Discord
+  instalar.py --chaves     só trocar as chaves do Spotify/Discord
+  instalar.py --tailscale  só (re)configurar o acesso pelo Tailscale
 """
+import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -19,6 +22,7 @@ VENV = ROOT / ".venv"
 PY = VENV / "Scripts" / "python.exe"
 PYW = VENV / "Scripts" / "pythonw.exe"
 ENV = ROOT / ".env"
+TS_PORT = 10443  # porta do Tailscale que aponta pra Mesa (https://<pc>.<tailnet>.ts.net:10443)
 
 os.system("")  # liga as cores ANSI no console do Windows
 B, D, G, Y, R, X = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
@@ -148,14 +152,82 @@ def start_now():
     ok("Mesa ligada (sem janela; log em logs\\mesa.log)")
 
 
-def finish():
+# ------------------------------------------------------------------ Tailscale
+def ts_exe():
+    exe = shutil.which("tailscale")
+    if exe:
+        return exe
+    for base in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", "")):
+        p = Path(base) / "Tailscale" / "tailscale.exe"
+        if base and p.exists():
+            return str(p)
+    return None
+
+
+def ts_json(exe, *args):
+    r = subprocess.run([exe, *args, "--json"], capture_output=True, text=True, encoding="utf-8")
+    try:
+        return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else {}
+    except ValueError:
+        return {}
+
+
+def tailscale():
+    """Publica a Mesa só pros aparelhos da sua rede Tailscale, com HTTPS de verdade (sem certificado
+    pra instalar no tablet): https://<este-pc>.<sua-tailnet>.ts.net:10443"""
+    title("Tailscale (acesso de qualquer lugar, só pros seus aparelhos)")
+    exe = ts_exe()
+    if not exe:
+        warn("Tailscale não está instalado neste PC.")
+        print(f"  Instale em {B}https://tailscale.com/download/windows{X}, entre na sua conta e rode {B}Instalar.bat --tailscale{X}.")
+        return None
+    while True:
+        st = ts_json(exe, "status")
+        if st.get("BackendState") != "Running":
+            warn("O Tailscale não está conectado. Abra o Tailscale (ícone perto do relógio) e entre na sua conta.")
+        elif not st.get("CertDomains"):
+            warn("Falta ligar o HTTPS na sua rede Tailscale (uma vez só).")
+            print(f"  Abra {B}https://login.tailscale.com/admin/dns{X}: ligue {B}MagicDNS{X} e, embaixo, {B}Enable HTTPS{X}.")
+        else:
+            break
+        if not yes("Já fez? Tentar de novo", True):
+            print(f"  Sem problema: depois rode {B}Instalar.bat --tailscale{X}.")
+            return None
+    host = st["Self"]["DNSName"].rstrip(".")
+    url = f"https://{host}:{TS_PORT}"
+    # não passa por cima se a porta já serve outra coisa
+    web = (ts_json(exe, "serve", "status").get("Web") or {}).get(f"{host}:{TS_PORT}") or {}
+    proxy = ((web.get("Handlers") or {}).get("/") or {}).get("Proxy", "")
+    if proxy and "localhost:8443" not in proxy and "127.0.0.1:8443" not in proxy:
+        warn(f"A porta {TS_PORT} do Tailscale já aponta pra outra coisa ({proxy}); deixei como está.")
+        return None
+    if not proxy:
+        r = subprocess.run([exe, "serve", "--bg", f"--https={TS_PORT}", "https+insecure://localhost:8443"],
+                           capture_output=True, text=True, encoding="utf-8")
+        if r.returncode:
+            warn("Não deu pra configurar o Tailscale:")
+            for line in (r.stderr or r.stdout).strip().splitlines():
+                print("  " + line)
+            print(f"  Se pedir administrador, rode o Instalar.bat como administrador uma vez ({B}--tailscale{X}).")
+            return None
+    ok(f"Mesa no Tailscale: {B}{url}{X} (só aparelhos da sua rede)")
+    return url
+
+
+def finish(ts_url=None):
     ip = lan_ip()
     title("Pronto! Falta só no tablet e no navegador")
-    print(f"""  {B}Tablet{X} (mesmo Wi-Fi do PC):
+    if ts_url:
+        print(f"""  {B}Tablet{X} (com o app do Tailscale instalado e logado na mesma conta):
+    Abra {B}{ts_url}{X} no Chrome › menu › {B}Instalar app{X}. Funciona em qualquer rede.
+""")
+    else:
+        print(f"""  {B}Tablet{X} (mesmo Wi-Fi do PC):
     1. Abra {B}http://{ip}:8080{X} e siga a página: instala o certificado da Mesa (uma vez).
     2. Depois abra {B}https://{ip}:8443{X} › menu do Chrome › {B}Instalar app{X}.
     {D}Se o Windows perguntar do firewall na primeira vez, permita em rede privada.{X}
-
+""")
+    print(f"""
   {B}Extensão do navegador{X} (vídeo do YouTube na tela + volume/saída por aba):
     edge://extensions (ou chrome://extensions) › ligue o {B}Modo de desenvolvedor{X} ›
     {B}Carregar sem pacote{X} › escolha a pasta {B}{ROOT / 'extension'}{X}
@@ -165,6 +237,11 @@ def finish():
 
 
 def main():
+    if "--tailscale" in sys.argv:
+        url = tailscale()
+        if url:
+            finish(url)
+        return
     if "--chaves" in sys.argv:
         keys()
         if PYW.exists() and yes("Reiniciar a Mesa pra usar as chaves novas?"):
@@ -174,9 +251,10 @@ def main():
     check_system()
     install_deps()
     keys()
+    ts_url = tailscale() if yes("Usar o Tailscale pra abrir no tablet? (recomendado)", True) else None
     startup()
     start_now()
-    finish()
+    finish(ts_url)
 
 
 if __name__ == "__main__":

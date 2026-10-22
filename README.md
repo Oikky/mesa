@@ -20,10 +20,20 @@ O instalador faz tudo no terminal: cria o ambiente, instala as dependências, pe
 Spotify e do Discord (as duas são opcionais, Enter pula), pergunta se a Mesa liga junto com o Windows
 e já deixa ela rodando. No fim ele mostra o endereço pra abrir no tablet.
 
-### No tablet (mesmo Wi-Fi do PC)
+### No tablet
 
+**Com Tailscale (recomendado, funciona de qualquer lugar):** o instalador pergunta se é pra usar e
+configura sozinho (`tailscale serve` na porta 10443, só pros aparelhos da **sua** rede Tailscale). Antes:
+1. Instalar o [Tailscale](https://tailscale.com/download/windows) no PC e no tablet, logados na mesma conta.
+2. Em <https://login.tailscale.com/admin/dns>, ligar **MagicDNS** e **Enable HTTPS** (uma vez).
+
+No fim o instalador mostra o endereço (`https://seu-pc.sua-rede.ts.net:10443`): abrir no Chrome do
+tablet › menu › **Instalar app**. Não precisa instalar certificado. Pra configurar depois:
+`Instalar.bat --tailscale`.
+
+**Sem Tailscale (mesmo Wi-Fi do PC):**
 1. Abrir `http://IP-DO-PC:8080` e seguir a página: instala o certificado da Mesa (uma vez).
-2. Abrir `https://IP-DO-PC:8443` › menu do Chrome › **Instalar app**. Pronto, abre em tela cheia.
+2. Abrir `https://IP-DO-PC:8443` › menu do Chrome › **Instalar app**.
 
 Se o Windows perguntar do firewall na primeira vez, permitir em **rede privada**.
 
