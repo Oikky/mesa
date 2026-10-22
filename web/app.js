@@ -37,7 +37,12 @@ function connect() {
     else if (msg.t === "tabs") renderTabs(msg.d);
     else if (msg.t === "cfg") renderCfg(msg.d);
     else if (msg.t === "upd") renderUpd(msg.d);
-    else if (msg.t === "spnow") { spnow = msg.d || {}; autoPanel(); }
+    else if (msg.t === "spnow") {
+      const changed = (msg.d?.title || "") !== (spnow.title || "");
+      spnow = msg.d || {};
+      autoPanel();
+      if (changed && slots.has("spotify")) send({ t: "panel", app: "spotify" });
+    }
     else if (msg.t === "toast") toast(msg.d);
   };
 }
@@ -1314,7 +1319,10 @@ function renderPanel(all = false) {
   deviceEl.classList.toggle("no-panel", keys.length === 0);
   for (const k of added) if (FETCHED.has(k)) send({ t: "panel", app: k });
   // fila do Spotify: a API não avisa quando muda, então pergunta de tempos em tempos
-  if (keys.includes("spotify") && !panel.timer) panel.timer = setInterval(() => send({ t: "panel", app: "spotify" }), 6000);
+  // (devagar: o Spotify limita pedidos; a troca de música já pede na hora pelo spnow)
+  if (keys.includes("spotify") && !panel.timer) panel.timer = setInterval(() => {
+    if (document.visibilityState === "visible" && !folded.has("spotify")) send({ t: "panel", app: "spotify" });
+  }, 30000);
   if (!keys.includes("spotify") && panel.timer) { clearInterval(panel.timer); panel.timer = 0; }
   for (const k of keys) if (all || added.includes(k)) renderSlot(k);
 }

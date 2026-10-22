@@ -32,6 +32,7 @@ class Spotify:
         self._token = None
         self._token_until = 0.0
         self._playlist_cache = {}  # id -> (quando, dados)
+        self._wait_until = 0.0     # o Spotify pediu pra esperar (429) até esse horário
 
     # ---------------------------------------------------------------- login
     def status(self):
@@ -87,7 +88,13 @@ class Spotify:
             secrets_store.update("spotify", refresh_token=data["refresh_token"])
         return self._token
 
+    def waiting(self):
+        """Segundos que ainda faltam do "espera" do Spotify (0 = pode perguntar)."""
+        return max(0, round(self._wait_until - time.time()))
+
     def _api(self, method, path, body=None):
+        if self.waiting():
+            raise SpotifyError(f"o Spotify pediu pra esperar ({self.waiting()} s)")
         req = urllib.request.Request(API + path, json.dumps(body).encode() if body is not None else None,
                                      {"Authorization": f"Bearer {self._access()}",
                                       "Content-Type": "application/json"}, method=method)
@@ -98,6 +105,14 @@ class Spotify:
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 self._token = None
+            if e.code == 429:
+                # pedidos demais: o Spotify diz quanto esperar; até lá a Mesa não pergunta nada
+                try:
+                    wait = int(e.headers.get("Retry-After") or 30)
+                except ValueError:
+                    wait = 30
+                self._wait_until = time.time() + min(max(wait, 5), 3600)
+                raise SpotifyError(f"o Spotify pediu pra esperar ({self.waiting()} s)") from e
             if e.code == 403:
                 # 403 tem motivos diferentes: o Spotify diz qual no corpo da resposta
                 try:

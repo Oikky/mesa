@@ -252,7 +252,11 @@ class Discord:
             self._join(ch["id"] if ch else None, ch)
         except Exception as e:
             print("[discord] login:", repr(e))
-            self._set_status("auth", error=str(e))
+            msg = str(e)
+            if "redirect_uri" in msg:
+                msg = ("Falta o Redirect no app do Discord: em discord.com/developers › seu app › OAuth2 › "
+                       "Redirects, adicione http://127.0.0.1, salve e toque em Conectar de novo.")
+            self._set_status("auth", error=msg)
 
     def _me(self, vs):
         """Meu mic/fone no Discord: mudo, ensurdecido e qual entrada/saída com que volume."""

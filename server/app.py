@@ -166,6 +166,12 @@ async def watch_spotify():
     pra conta do Spotify de tempos em tempos se tem algo tocando."""
     global spnow
     while True:
+        if spotify.waiting():
+            await asyncio.sleep(spotify.waiting() + 1)
+            continue
+        if not clients:  # ninguém olhando: não gasta pedido
+            await asyncio.sleep(10)
+            continue
         try:
             n = await asyncio.to_thread(spotify.now_playing)
         except Exception:
@@ -174,7 +180,7 @@ async def watch_spotify():
         if n != spnow:
             spnow = n
             await broadcast({"t": "spnow", "d": spnow})
-        await asyncio.sleep(8 if n["playing"] else 15)
+        await asyncio.sleep(20 if n["playing"] else 45)
 
 
 async def watch_updates():
