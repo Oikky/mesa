@@ -74,6 +74,7 @@ escondidos (`config/`), certificados (`certs/`).
 | `Parar Mesa.bat` | desliga |
 | `Iniciar com o Windows.ps1` | liga/desliga o “abrir junto com o Windows” (`-Remover` pra tirar) |
 | `logs/mesa.log` | o que aconteceu (mandar esse arquivo quando algo der errado) |
+| <http://127.0.0.1:8080/diag> | o que a Mesa está recebendo agora (abrir no PC e mandar o texto quando algo não aparece) |
 
 No tablet: tocar em um pad dispara, **segurar e arrastar** troca ele de lugar, **segurar e soltar**
 edita. Arrastar pra baixo na coluna dos faders mostra os microfones. A tecla do olho escolhe quais

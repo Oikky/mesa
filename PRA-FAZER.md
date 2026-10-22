@@ -3,7 +3,7 @@
 Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 
 ## Esperando o usuário
-- [ ] Recarregar a extensão em `edge://extensions` (↻ no card da Mesa) — **versão 1.4.0 (volume, medidor e saída por aba) pede acesso
+- [ ] Recarregar a extensão em `edge://extensions` (↻ no card da Mesa) — **versão 1.5.0 (volume, medidor e saída por aba; fila do YouTube pelos dados) pede acesso
       a todos os sites** (precisa pra mexer no volume de qualquer aba): aceitar. Depois dar F5 nas abas
       que já estavam abertas (sem F5 a aba aparece, mas só o mute funciona; o painel avisa).
 - [x] Spotify conectado (22/10/2026). Era: criar o app em developer.spotify.com (redirect `http://127.0.0.1:8080/spotify/callback`,
@@ -28,11 +28,14 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - [ ] Testar Spotify e Discord com as contas reais (ainda não rodaram com dados de verdade).
 - [ ] Quando o layout E estiver aprovado de vez: apagar os layouts O/A/B/C/D (CSS/JS) e o toque na
       marca que troca layout.
-- [ ] "A seguir" do YouTube vem sem o nome do canal (seletor do layout novo do YouTube).
 - [ ] Pads: hoje o layout E mostra só os 9 primeiros; decidir se tem página extra ou rolagem.
 - [ ] Pad "Mime" do desenho: descobrir o que é (app/atalho) e o que o painel dele deve mostrar.
 
 ## Feito (resumo)
+- 22/10/2026: fila do YouTube lida dos dados do YouTube (`extension/yt-data.js`, mundo da página):
+  vem completa até em aba de fundo, com nome do canal (antes lia a tela, que monta aos poucos).
+  Parte do Spotify aparece quando a conta diz que está tocando (`spnow`, vale pro Spotify Web/Opera);
+  a do YouTube quando a extensão diz que tem vídeo tocando. Diagnóstico em http://127.0.0.1:8080/diag.
 - 22/10/2026: pronto pra compartilhar: repositório git próprio (main), `Instalar.bat`/`instalar.py`
   (venv, dependências, chaves no terminal, ligar com o Windows), `Atualizar.bat` (pull + deps +
   reinicia; avisa se a extensão mudou), aviso de versão nova no tablet (tecla com seta no rodapé,

@@ -37,6 +37,7 @@ function connect() {
     else if (msg.t === "tabs") renderTabs(msg.d);
     else if (msg.t === "cfg") renderCfg(msg.d);
     else if (msg.t === "upd") renderUpd(msg.d);
+    else if (msg.t === "spnow") { spnow = msg.d || {}; autoPanel(); }
     else if (msg.t === "toast") toast(msg.d);
   };
 }
@@ -1242,9 +1243,14 @@ let cur = null, pBody = null, pFoot = null; // a parte que está sendo desenhada
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const FETCHED = new Set(["youtube", "spotify", "discord"]); // dados que vêm do notebook a pedido
 
+// O que está tocando: a extensão diz se tem vídeo do YouTube tocando, e a conta do Spotify diz se
+// tem música (vale pro Spotify Web e pro Opera, que nem sempre aparece no controle de mídia do Windows).
+let spnow = {};
 function panelKeys() {
   const dc = panel.data.discord;
-  const playing = videoMatches() ? "youtube" : media.active && media.source === "Spotify" ? "spotify" : null;
+  const ytOn = videoMatches() || (!!video?.playing && !(media.active && media.playing && media.source === "Spotify"));
+  const spOn = (media.active && media.source === "Spotify") || !!spnow.playing;
+  const playing = ytOn ? "youtube" : spOn ? "spotify" : null;
   const call = dc?.status === "ok" && dc.channel ? "discord" : null;
   return [...new Set([playing, call, panel.pinned].filter(Boolean))].slice(0, 3);
 }

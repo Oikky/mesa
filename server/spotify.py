@@ -157,6 +157,14 @@ class Spotify:
                                         for t in (alb.get("tracks") or {}).get("items") or []]}
         return out
 
+    def now_playing(self):
+        """Se a conta está tocando algo agora, em qualquer aparelho (app, Spotify Web, celular)."""
+        if self.status() != "ok":
+            return None
+        cur = self._api("GET", "/me/player/currently-playing") or {}
+        item = cur.get("item") or {}
+        return {"playing": bool(cur.get("is_playing")), "title": item.get("name") or ""}
+
     def play(self, uri, context=None):
         body = {"context_uri": context, "offset": {"uri": uri}} if context else {"uris": [uri]}
         self._api("PUT", "/me/player/play", body)

@@ -75,7 +75,21 @@ const idOf = (href) => {
 };
 const text = (el) => (el?.textContent || "").replace(/\s+/g, " ").trim();
 
+// fila pelos dados do YouTube (yt-data.js, no mundo da página); a tela fica de reserva
+let fromData = null;
+document.addEventListener("__mesa_ytq", (e) => {
+  try { fromData = JSON.parse(e.detail); } catch { fromData = null; }
+});
 function readQueue() {
+  if (location.hostname === "www.youtube.com") {
+    fromData = null;
+    document.dispatchEvent(new CustomEvent("__mesa_ytq_req"));
+    if (fromData?.items?.length) return fromData;
+  }
+  return readQueueDom();
+}
+
+function readQueueDom() {
   const current = videoId();
   // YouTube Music: a fila do player
   const music = [...document.querySelectorAll("ytmusic-player-queue-item")];

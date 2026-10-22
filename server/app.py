@@ -76,6 +76,7 @@ video = Video()
 tabs = Tabs()
 discord = Discord(on_change=from_thread("discord"))
 spotify = Spotify()
+spnow = {"playing": False, "title": ""}  # Spotify tocando (pela conta, vale pro Spotify Web também)
 upd = {"behind": 0, "ext": updates.extension_changed()}  # versão nova no git / extensão mudou
 ext_clients: set[WebSocket] = set()  # extensão do navegador (canal de volta pro YouTube)
 
@@ -153,10 +154,27 @@ async def lifespan(_):
     loop = asyncio.get_running_loop()
     tasks = [asyncio.create_task(media.run()), asyncio.create_task(watch_pads()),
              asyncio.create_task(prune_video()), asyncio.create_task(watch_web()),
-             asyncio.create_task(watch_channels()), asyncio.create_task(watch_updates())]
+             asyncio.create_task(watch_channels()), asyncio.create_task(watch_updates()),
+             asyncio.create_task(watch_spotify())]
     yield
     for t in tasks:
         t.cancel()
+
+
+async def watch_spotify():
+    """O controle de mídia do Windows não mostra tudo (Spotify Web no Opera, por exemplo): pergunta
+    pra conta do Spotify de tempos em tempos se tem algo tocando."""
+    global spnow
+    while True:
+        try:
+            n = await asyncio.to_thread(spotify.now_playing)
+        except Exception:
+            n = None
+        n = n or {"playing": False, "title": ""}
+        if n != spnow:
+            spnow = n
+            await broadcast({"t": "spnow", "d": spnow})
+        await asyncio.sleep(8 if n["playing"] else 15)
 
 
 async def watch_updates():
@@ -253,6 +271,7 @@ async def ws_endpoint(ws: WebSocket):
         await ws.send_text(json.dumps({"t": "tabs", "d": tabs.snapshot()}))
         await ws.send_text(json.dumps({"t": "cfg", "d": icons.config()}))
         await ws.send_text(json.dumps({"t": "upd", "d": upd}))
+        await ws.send_text(json.dumps({"t": "spnow", "d": spnow}))
         while True:
             msg = json.loads(await ws.receive_text())
             t = msg.get("t")
@@ -455,6 +474,33 @@ async def yt_state(req: Request):
     else:
         await broadcast({"t": "video", "d": video.snapshot()})
     return Response(status_code=204)
+
+
+@setup.get("/diag")
+async def diag(req: Request):
+    """O que a Mesa está recebendo, pra achar problema (só no próprio PC)."""
+    if not local_only(req):
+        return Response(status_code=403)
+    import time as _t
+    now = _t.monotonic()
+    yt = [{"aba": k, "video": v["id"], "titulo": v["title"], "tocando": v["playing"],
+           "segundos_desde_o_ultimo_aviso": round(now - v["at"], 1),
+           "fila": len((video.queues.get(k) or {}).get("items") or [])} for k, v in video.tabs.items()]
+    try:
+        sp_status = await asyncio.to_thread(spotify.status)
+    except Exception as e:
+        sp_status = f"erro: {e}"
+    out = {
+        "controle_de_midia_do_windows": media.snapshot(),
+        "extensao": {"conectada_agora": len(ext_clients), "navegador": tabs.browser,
+                     "abas_com_som": [{"site": t["host"], "titulo": t["title"], "script_ok": t["ctrl"]} for t in tabs.list],
+                     "abas_do_youtube": yt},
+        "spotify": {"status": sp_status, "tocando_pela_conta": spnow},
+        "discord": discord.snapshot().get("status"),
+        "atualizacao": upd,
+        "apps_no_mixer": [c["id"] for c in (mixer.state() or {}).get("channels", [])],
+    }
+    return Response(json.dumps(out, ensure_ascii=False, indent=2), media_type="application/json; charset=utf-8")
 
 
 @setup.post("/tabs")
