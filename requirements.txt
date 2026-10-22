@@ -1,0 +1,13 @@
+# Mesa: dependências do servidor (Windows, Python 3.11+). Instaladas pelo Instalar.bat / Atualizar.bat.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+websockets>=12
+pycaw>=20240316
+comtypes>=1.4
+psutil>=5.9
+pillow>=10
+cryptography>=42
+winrt-runtime>=2.0
+winrt-Windows.Foundation>=2.0
+winrt-Windows.Media.Control>=2.0
+winrt-Windows.Storage.Streams>=2.0

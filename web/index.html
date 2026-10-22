@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#111112">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Mesa</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="preload" href="/fonts/inter-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="device" id="device" data-page="mixer" data-layout="o">
+
+    <!-- coluna de controle: marca, tela, transporte, modos -->
+    <aside class="control">
+      <div class="brand">
+        <span class="wordmark" id="wordmark" title="Trocar layout"><b>MESA</b>CONTROL</span>
+        <span class="link" id="link" title="Conexão"><i class="led"></i></span>
+      </div>
+
+      <div class="lcd" id="lcd" data-state="idle">
+        <div class="lcd-art" id="art" role="img" aria-label="Capa">
+          <div class="lcd-video" id="video" aria-hidden="true"><div id="yt"></div></div>
+          <span class="lcd-badge" id="video-badge"></span>
+        </div>
+        <div class="lcd-text">
+          <span class="lcd-src" id="source">SEM MÍDIA</span>
+          <span class="lcd-title" id="title">Nada tocando</span>
+          <span class="lcd-artist" id="artist">Dê play no notebook</span>
+        </div>
+        <div class="lcd-time" id="timeline">
+          <span id="pos">0:00</span>
+          <div class="lcd-bar" id="bar"><i id="bar-fill"></i></div>
+          <span id="dur">0:00</span>
+        </div>
+        <div class="lcd-toast" id="toast" aria-live="polite"></div>
+      </div>
+
+      <div class="transport">
+        <button class="key key-side" id="prev" aria-label="Anterior"><svg><use href="/icons/sprite.svg#i-skip-back"/></svg></button>
+        <button class="key key-main" id="play" aria-label="Tocar ou pausar"><svg><use id="play-icon" href="/icons/sprite.svg#i-play"/></svg></button>
+        <button class="key key-side" id="next" aria-label="Próxima"><svg><use href="/icons/sprite.svg#i-skip-forward"/></svg></button>
+      </div>
+
+      <div class="quick" id="quick" aria-label="Pads do início"></div>
+
+      <div class="knob-wrap">
+        <div class="knob" id="knob" role="slider" tabindex="0" aria-label="Volume geral" aria-valuemin="0" aria-valuemax="100">
+          <div class="knob-ring" id="knob-ring"></div>
+          <div class="knob-body"><i></i></div>
+        </div>
+        <div class="knob-info">
+          <span class="silk">Main volume · <b id="knob-val">0</b></span>
+          <button class="key mute master-mute" id="master-mute" aria-pressed="false"><i class="led"></i>Mute</button>
+        </div>
+      </div>
+
+      <nav class="modes" aria-label="Modo">
+        <button class="mode" data-mode="mixer"><i class="led"></i><svg class="mode-icon" aria-hidden="true"><use href="/icons/sprite.svg#i-sliders-vertical"/></svg><span>Mixer</span></button>
+        <button class="mode" data-mode="outputs"><i class="led"></i><svg class="mode-icon" aria-hidden="true"><use href="/icons/sprite.svg#i-audio-lines"/></svg><span>Saídas</span></button>
+        <button class="mode" data-mode="pads"><i class="led"></i><svg class="mode-icon" aria-hidden="true"><use href="/icons/sprite.svg#i-layout-grid"/></svg><span>Pads</span></button>
+      </nav>
+    </aside>
+
+    <!-- páginas -->
+    <main class="stage">
+      <section class="page page-mixer" data-page="mixer" aria-label="Mixer">
+        <div class="strips" id="apps"></div>
+        <div class="strips strips-r" id="apps-r"></div>
+        <div class="strips strips-main" id="main"></div>
+        <div class="strips strips-mic" id="mics" aria-label="Microfones"></div>
+        <div class="bank" role="group" aria-label="Banco de faders">
+          <button class="bank-led" data-bank="main" aria-label="Faders de som" aria-pressed="true"></button>
+          <button class="bank-led" data-bank="mic" aria-label="Faders dos microfones" aria-pressed="false"></button>
+        </div>
+        <p class="empty" id="apps-empty">Nenhum app tocando som agora.</p>
+      </section>
+
+      <section class="page page-outputs" data-page="outputs" aria-label="Saídas">
+        <div class="strips" id="outputs"></div>
+      </section>
+
+      <section class="page page-pads" data-page="pads" aria-label="Pads">
+        <div class="pads-head">
+          <span class="silk">Toque pra disparar · segure pra editar</span>
+          <button class="key key-small" id="edit-toggle" aria-pressed="false"><svg><use href="/icons/sprite.svg#i-pencil"/></svg>Editar</button>
+        </div>
+        <div class="pads" id="pads"></div>
+      </section>
+    </main>
+
+    <!-- E · painel da direita: até 3 partes (o que toca, a call, o que eu abri); montado pelo app.js -->
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+
+    <!-- E · rodapé: saídas e o computador -->
+    <nav class="dock" aria-label="Computador">
+      <button class="dock-key" id="dock-outputs" aria-pressed="false" aria-label="Saídas de áudio"><svg><use href="/icons/sprite.svg#i-speaker"/></svg></button>
+      <button class="dock-key" id="dock-mic" aria-pressed="false" aria-label="Microfone"><svg><use href="/icons/sprite.svg#i-mic"/></svg></button>
+      <button class="dock-key" id="dock-faders" aria-pressed="false" aria-label="Escolher quais faders aparecem"><svg><use href="/icons/sprite.svg#i-eye"/></svg></button>
+      <span class="dock-gap"></span>
+      <button class="dock-key dock-update" id="dock-update" hidden aria-label="Atualizar a Mesa"><svg><use href="/icons/sprite.svg#i-download"/></svg><i class="led"></i></button>
+      <button class="dock-key" data-system="lock" aria-label="Bloquear o PC"><svg><use href="/icons/sprite.svg#i-lock"/></svg></button>
+      <button class="dock-key is-hold" data-system="restart" aria-label="Reiniciar o PC (segure)"><svg><use href="/icons/sprite.svg#i-rotate-cw"/></svg><i class="hold-ring"></i></button>
+      <button class="dock-key is-hold" data-system="shutdown" aria-label="Desligar o PC (segure)"><svg><use href="/icons/sprite.svg#i-power"/></svg><i class="hold-ring"></i></button>
+    </nav>
+  </div>
+
+  <!-- escolher saída de um app -->
+  <div class="pop" id="route-pop" hidden>
+    <span class="silk" id="route-title">Saída</span>
+    <div class="pop-list" id="route-list"></div>
+  </div>
+
+  <!-- escolher ícone de um canal -->
+  <div class="pop pop-icons" id="icon-pop" hidden>
+    <span class="silk" id="icon-title">Ícone</span>
+    <div class="icon-grid" id="icon-pick"></div>
+    <span class="hint">Imagem própria: ponha o caminho do arquivo em <code>config/channels.json</code>.</span>
+  </div>
+
+  <!-- editor de pad -->
+  <dialog class="sheet" id="editor">
+    <form method="dialog" id="editor-form">
+      <header class="sheet-head">
+        <span class="silk" id="editor-title">Novo pad</span>
+        <button class="key key-small" value="cancel" formnovalidate aria-label="Fechar"><svg><use href="/icons/sprite.svg#i-x"/></svg></button>
+      </header>
+
+      <label class="field"><span class="silk">Nome</span>
+        <input name="label" maxlength="18" autocomplete="off" placeholder="Ex.: YouTube">
+      </label>
+
+      <div class="field"><span class="silk">Fundo</span>
+        <div class="bg-row">
+          <div class="bg-preview" id="bg-preview" aria-hidden="true"></div>
+          <button type="button" class="key key-small" id="bg-pick"><svg><use href="/icons/sprite.svg#i-camera"/></svg>Escolher imagem</button>
+          <button type="button" class="key key-small" id="bg-clear"><svg><use href="/icons/sprite.svg#i-x"/></svg>Tirar</button>
+          <input type="file" id="bg-file" accept="image/*" hidden>
+        </div>
+        <div class="bg-presets" id="bg-presets" aria-label="Fundos prontos"></div>
+        <span class="hint">Fundo pronto mantém o ícone. Com imagem sua o ícone some e o nome fica embaixo, como no Stream Deck.</span>
+      </div>
+
+      <button type="button" class="opt opt-toggle" id="home-toggle" aria-pressed="false"><i class="led"></i><span>Mostrar no início, embaixo da tela</span></button>
+
+      <div class="field"><span class="silk">Ícone</span>
+        <div class="icon-grid" id="icon-grid"></div>
+      </div>
+
+      <div class="field"><span class="silk">Ação</span>
+        <div class="seg" id="action-seg">
+          <button type="button" data-type="open">Abrir</button>
+          <button type="button" data-type="keys">Atalho</button>
+          <button type="button" data-type="output">Saída de áudio</button>
+        </div>
+      </div>
+
+      <label class="field" data-for="open"><span class="silk">Site, app ou pasta</span>
+        <input name="target" autocomplete="off" placeholder="https://youtube.com · spotify: · C:\Jogos\jogo.exe">
+      </label>
+      <label class="field" data-for="keys"><span class="silk">Teclas</span>
+        <input name="keys" autocomplete="off" autocapitalize="off" placeholder="ctrl+shift+m · win+d · alt+tab">
+        <span class="hint">Separe com +. Vale ctrl, shift, alt, win, letras, números, f1–f24, enter, esc, setas, playpause.</span>
+      </label>
+      <div class="field" data-for="output"><span class="silk">Mudar a saída padrão para</span>
+        <div class="pop-list" id="editor-devices"></div>
+      </div>
+
+      <footer class="sheet-foot">
+        <button type="button" class="key key-small" id="editor-delete"><svg><use href="/icons/sprite.svg#i-trash-2"/></svg>Excluir</button>
+        <button class="key key-lit" value="save">Salvar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <template id="strip-tpl">
+    <div class="strip">
+      <div class="strip-head">
+        <button class="strip-icon" aria-label="Trocar ícone"></button>
+        <span class="strip-name"></span>
+        <button class="chip"></button>
+      </div>
+      <div class="fader">
+        <div class="track" role="slider" aria-valuemin="0" aria-valuemax="100" tabindex="0">
+          <div class="ladder"></div>
+          <div class="slot"></div>
+          <div class="travel"><div class="cap"></div></div>
+        </div>
+        <div class="meter" aria-hidden="true"><div class="meter-lit"></div><div class="meter-hold"></div></div>
+      </div>
+      <output class="readout">0</output>
+      <button class="key mute" aria-pressed="false"><i class="led"></i>Mute</button>
+    </div>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>

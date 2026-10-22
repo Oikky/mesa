@@ -1,0 +1,20 @@
+# ambiente e coisas geradas
+.venv/
+__pycache__/
+*.pyc
+*.tmp
+logs/
+# certificados gerados neste PC (chave privada!)
+certs/
+# chaves e config pessoal de cada um (o instalador e o app criam na primeira vez)
+.env
+config/secrets.json
+config/pads.json
+config/channels.json
+config/pad-images/
+# coisas soltas
+*.png.bak
+layouts-mesa.png
+# notas só deste PC (endereço de rede, histórico)
+CLAUDE.local.md
+PROMPT.md

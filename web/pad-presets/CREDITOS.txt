@@ -1,0 +1,9 @@
+Fundos prontos dos pads (gerados por scripts, 384 px).
+
+youtube.png, spotify.png: desenho próprio dos logos (marcas registradas do YouTube/Google e do Spotify; uso pessoal).
+discord.png, vscode.png, obs.png: ícone tirado do próprio .exe instalado no notebook.
+create.jpg: print do meu mundo Create 26.2 (pasta screenshots da instância no CurseForge).
+headset.jpg: "JLab Studio Black Headphones" por Maomaoox, CC BY-SA 4.0,
+  https://commons.wikimedia.org/wiki/File:JLab_Studio_Black_Headphones.jpg (recortado e escurecido).
+notebook.jpg: "Acer Nitro 5" por AnVuong1222004, CC BY-SA 4.0,
+  https://commons.wikimedia.org/wiki/File:Acer_Nitro_5.png (recortado sobre fundo escuro).
