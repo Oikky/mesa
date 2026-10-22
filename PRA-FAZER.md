@@ -13,6 +13,18 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       `http://127.0.0.1`). Client ID e Secret já no `.env` (22/10); falta conferir o redirect e "Conectar" no painel e aprovar no
       Discord do notebook.
 
+## Amigo (Luiz) usando a Mesa — 22/10/2026
+- Repo público: https://github.com/Oikky/mesa (branch main). Ele instalou em `C:\Users\luizg\Mesa`
+  com `Instalar.bat`, usa **Opera** e a **própria rede Tailscale** (`Instalar.bat --tailscale`).
+- Pra mandar atualização pra ele: commit + `git push` daqui; ele toca na seta do tablet ou roda
+  `Atualizar.bat`. Mudou a extensão → ele precisa recarregar em `opera://extensions`.
+- Status: Discord dele conectado (faltava o Redirect `http://127.0.0.1` no app do Discord).
+  Spotify dele levou 429 e o Spotify mandou esperar 1 h (versão antiga perguntava demais; já corrigido).
+- [ ] Confirmar com ele depois da 1 h: fila do Spotify e do YouTube aparecendo no Opera. Se não,
+      pedir o texto de http://127.0.0.1:8080/diag do PC dele.
+- [ ] Se o Spotify der 403 "conta não liberada": ele está usando o Client ID de outra pessoa → criar
+      o app dele (developer.spotify.com, redirect `http://127.0.0.1:8080/spotify/callback`).
+
 ## Próximo
 - [ ] Testar volume por aba de verdade (depois de recarregar a extensão): duas abas tocando, sub-faders,
       painel do Edge, mute nativo, aba com WebAudio (jogo de navegador), Spotify Web.
