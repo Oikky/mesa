@@ -99,7 +99,19 @@ class Spotify:
             if e.code == 401:
                 self._token = None
             if e.code == 403:
-                raise SpotifyError("o Spotify só deixa controlar com conta Premium") from e
+                # 403 tem motivos diferentes: o Spotify diz qual no corpo da resposta
+                try:
+                    err = json.loads(e.read() or b"{}").get("error") or {}
+                except ValueError:
+                    err = {}
+                why = f"{err.get('message', '')} {err.get('reason', '')}".lower()
+                if "premium" in why:
+                    raise SpotifyError("o Spotify só deixa controlar (tocar faixa) com conta Premium") from e
+                if "regist" in why or "dashboard" in why or "developer" in why:
+                    raise SpotifyError("essa conta do Spotify não está liberada no app: em developer.spotify.com › "
+                                       "seu app › User Management, adicione o e-mail da conta (ou crie o app com "
+                                       "a própria conta e use o Client ID dele)") from e
+                raise SpotifyError(f"o Spotify recusou ({err.get('message') or 403})") from e
             if e.code == 404 and method != "GET":
                 raise SpotifyError("abra o Spotify no notebook primeiro") from e
             if e.code == 404:
