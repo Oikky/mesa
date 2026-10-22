@@ -88,13 +88,17 @@ class Spotify:
             secrets_store.update("spotify", refresh_token=data["refresh_token"])
         return self._token
 
+    def wait_text(self):
+        w = self.waiting()
+        return f"{w} s" if w < 90 else f"uns {round(w / 60)} min"
+
     def waiting(self):
         """Segundos que ainda faltam do "espera" do Spotify (0 = pode perguntar)."""
         return max(0, round(self._wait_until - time.time()))
 
     def _api(self, method, path, body=None):
         if self.waiting():
-            raise SpotifyError(f"o Spotify pediu pra esperar ({self.waiting()} s)")
+            raise SpotifyError(f"o Spotify pediu pra esperar {self.wait_text()} (pedidos demais); depois volta sozinho")
         req = urllib.request.Request(API + path, json.dumps(body).encode() if body is not None else None,
                                      {"Authorization": f"Bearer {self._access()}",
                                       "Content-Type": "application/json"}, method=method)
@@ -112,7 +116,7 @@ class Spotify:
                 except ValueError:
                     wait = 30
                 self._wait_until = time.time() + min(max(wait, 5), 3600)
-                raise SpotifyError(f"o Spotify pediu pra esperar ({self.waiting()} s)") from e
+                raise SpotifyError(f"o Spotify pediu pra esperar {self.wait_text()} (pedidos demais); depois volta sozinho") from e
             if e.code == 403:
                 # 403 tem motivos diferentes: o Spotify diz qual no corpo da resposta
                 try:
