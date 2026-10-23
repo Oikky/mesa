@@ -115,9 +115,13 @@ function makeStrip(data, kind) {
     name: el.querySelector(".strip-name"),
     chip: el.querySelector(".chip"),
     iconBtn: el.querySelector(".strip-icon"),
+    pan: el.querySelector(".pan"),
+    bal: 0, panning: false, panHold: 0,
     iconSpec: null, iconKey: null,
   };
+  bindPan(s);
   s.muteBtn.addEventListener("click", () => {
+    if (s.kind === "ghost") return;
     s.mute = !s.mute;
     paintStrip(s);
     if (s.kind === "dc") send({ t: "dcuser", user: s.user, mute: s.mute });
@@ -125,6 +129,7 @@ function makeStrip(data, kind) {
   });
   // toque no nome: o painel da direita mostra esse app (no navegador, as abas dele)
   s.name.addEventListener("click", () => {
+    if (s.eatClick) return;
     if (s.kind === "app") showPanel(`app:${s.id}`);
     else if (s.kind === "tab" && tabsState.browser) showPanel(`app:${tabsState.browser}`);
     else if (s.kind === "mic") showPanel("mic");
@@ -132,6 +137,9 @@ function makeStrip(data, kind) {
   s.chip.addEventListener("click", (e) => chipAction(s, e.currentTarget));
   s.iconBtn.addEventListener("click", () => openIconPop(s));
   bindFader(s);
+  bindHold(s);
+  // entrou: a animação de chegada não repete quando o canal muda de lugar (mover no DOM reinicia animação)
+  el.addEventListener("animationend", (e) => { if (/^strip-(in|grow)$/.test(e.animationName)) el.classList.add("is-in"); });
   return s;
 }
 
@@ -139,9 +147,13 @@ function paintStrip(s) {
   s.el.style.setProperty("--v", s.v);
   s.el.classList.toggle("is-muted", s.mute);
   s.muteBtn.setAttribute("aria-pressed", String(s.mute));
+  const mi = s.mute ? "volume-x" : "volume-2";
+  if (s.muteIcon !== mi) { s.muteIcon = mi; s.muteBtn.innerHTML = icon(mi); }
   const pct = Math.round(s.v * (s.kind === "dc" ? 200 : 100));
   s.track.setAttribute("aria-valuenow", pct);
-  if (s.db != null && !s.dragging) {
+  if (s.kind === "ghost") {
+    s.readout.textContent = "—";
+  } else if (s.db != null && !s.dragging) {
     s.readout.innerHTML = `${s.db <= -60 ? "−∞" : s.db.toFixed(1).replace("-", "−")}<small> dB</small>`;
   } else {
     s.readout.textContent = pct;
@@ -155,7 +167,17 @@ function updateStrip(s, data) {
   s.db = s.kind === "app" ? null : data.db;
   const devShort = (id) => { const d = mix.devices.find((x) => x.device === id); return d && nm(d.id, d.short); };
 
-  s.el.classList.toggle("is-sub", s.kind === "tab" || s.kind === "dc");
+  s.cfgKey = keyOf(data, s.kind);
+  s.el.classList.toggle("is-sub", s.kind === "dc");
+  s.el.classList.toggle("is-ghost", s.kind === "ghost");
+  s.el.classList.toggle("is-pinned", !!cfg[s.cfgKey]?.pin);
+  // balanço só onde o Windows deixa: canal de app e o master
+  // L/R: app, master e aba; nos outros fica o espaço (os faders ficam na mesma altura)
+  const hasPan = s.kind === "app" || s.kind === "master" || s.kind === "tab";
+  s.pan.hidden = s.kind === "output";
+  s.pan.classList.toggle("is-off", !hasPan);
+  s.pan.tabIndex = hasPan ? 0 : -1;
+  if (!s.panning && performance.now() > s.panHold) { s.bal = data.bal || 0; paintPan(s); }
   s.el.classList.toggle("is-dc", s.kind === "dc");
   if (s.kind === "dc") {
     s.user = data.user;
@@ -186,6 +208,11 @@ function updateStrip(s, data) {
     s.chip.classList.toggle("is-set", !!out);
     s.chip.disabled = !mix.routing || data.id === "system";
     s.chip.title = "Saída deste app";
+  } else if (s.kind === "ghost") {
+    s.name.textContent = nm(data.key, data.name);
+    s.chip.textContent = "Sem som";
+    s.chip.disabled = true;
+    s.chip.title = "Fixo: volta a funcionar quando o app tocar";
   } else if (s.kind === "master") {
     s.name.textContent = nm("master", "Main");
     s.chip.textContent = nm(data.id === "master" ? `dev:${data.device}` : data.id, data.short);
@@ -199,7 +226,8 @@ function updateStrip(s, data) {
   }
   s.track.setAttribute("aria-label", `Volume ${s.name.textContent}`);
   s.iconSpec = s.kind === "master" ? "sliders-vertical" : s.kind === "tab" ? data.icon || "globe"
-    : s.kind === "dc" ? data.icon || "users" : s.kind === "mic" ? "mic" : data.icon || "app";
+    : s.kind === "dc" ? data.icon || "users" : s.kind === "mic" ? "mic"
+    : s.kind === "ghost" ? data.icon || (data.key.startsWith("site:") ? "globe" : "app") : data.icon || "app";
   paintIcon(s);
   paintStrip(s);
 }
@@ -214,7 +242,7 @@ function paintIcon(s) {
   if (s.iconKey === key) return;
   s.iconKey = key;
   const b = s.iconBtn;
-  b.disabled = s.kind === "master" || s.kind === "tab" || s.kind === "dc" || s.kind === "mic";
+  b.disabled = s.kind === "master" || s.kind === "tab" || s.kind === "dc" || s.kind === "mic" || s.kind === "ghost";
   b.classList.toggle("is-none", spec === "none");
   b.classList.remove("is-img");
   if (spec === "none") return b.replaceChildren();
@@ -224,7 +252,9 @@ function paintIcon(s) {
     img.draggable = false;
     const fallback = s.kind === "tab" ? "globe" : s.kind === "dc" ? "users" : s.kind === "app" ? "app-window" : "speaker";
     img.onerror = () => { b.classList.remove("is-img"); b.innerHTML = icon(fallback); };
-    img.src = s.kind === "tab" || s.kind === "dc" ? spec : iconUrl(s);
+    img.src = s.kind === "tab" || s.kind === "dc" || (s.kind === "ghost" && spec !== "app") ? spec
+      : iconUrl(s.kind === "ghost" ? { id: s.cfgKey } : s);
+    colorOf(img.src, 120, 230).then((c) => s.el.style.setProperty("--sc", c ? c.join(" ") : "255 255 255"));
     b.classList.add("is-img");
     b.replaceChildren(img);
   } else {
@@ -232,6 +262,48 @@ function paintIcon(s) {
   }
 }
 
+// balanço: arrastar pro lado; perto do meio gruda no centro; dois toques volta pro centro
+function paintPan(s) {
+  const b = Math.round(s.bal * 100);
+  s.pan.style.setProperty("--b", s.bal);
+  s.pan.setAttribute("aria-valuenow", b);
+  s.pan.setAttribute("aria-valuetext", b === 0 ? "Centro" : `${Math.abs(b)}% ${b < 0 ? "esquerda" : "direita"}`);
+  s.pan.classList.toggle("is-center", b === 0);
+}
+function bindPan(s) {
+  let x0 = 0, b0 = 0, last = 0, timer = 0;
+  const push = () => {
+    clearTimeout(timer);
+    const now = performance.now();
+    const go = () => { last = performance.now(); send({ t: s.kind === "tab" ? "tabbal" : "bal", id: s.id, b: s.bal }); };
+    if (now - last > 80) go(); else timer = setTimeout(go, 80);
+  };
+  s.pan.addEventListener("pointerdown", (e) => {
+    if (s.pan.classList.contains("is-off")) return;
+    s.panning = true; x0 = e.clientX; b0 = s.bal;
+    s.pan.setPointerCapture(e.pointerId);
+  });
+  s.pan.addEventListener("pointermove", (e) => {
+    if (!s.panning) return;
+    let b = Math.max(-1, Math.min(1, b0 + (e.clientX - x0) / (s.pan.clientWidth * 0.8)));
+    if (Math.abs(b) < 0.07) b = 0;
+    if (b === s.bal) return;
+    s.bal = b; paintPan(s); push();
+  });
+  const end = () => { if (!s.panning) return; s.panning = false; s.panHold = performance.now() + 1200; };
+  s.pan.addEventListener("pointerup", end);
+  s.pan.addEventListener("pointercancel", end);
+  s.pan.addEventListener("dblclick", () => { s.bal = 0; paintPan(s); push(); s.panHold = performance.now() + 1200; });
+  s.pan.addEventListener("keydown", (e) => {
+    const d = e.key === "ArrowLeft" ? -0.1 : e.key === "ArrowRight" ? 0.1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    s.bal = Math.round(Math.max(-1, Math.min(1, s.bal + d)) * 10) / 10; paintPan(s); push();
+    s.panHold = performance.now() + 1200;
+  });
+}
+
+const LEAVE_MS = 720; // canal sem som: apaga, encolhe e os vizinhos fecham o buraco
 function syncStrips(container, list, kind, keep = list) {
   const seen = new Set(keep.map((d) => d.id));
   // tira primeiro quem saiu, pra não bagunçar a ordem dos que ficam
@@ -239,9 +311,12 @@ function syncStrips(container, list, kind, keep = list) {
     if (s.el.parentElement === container && !seen.has(id)) {
       strips.delete(id);
       s.el.classList.add("is-leaving");
-      setTimeout(() => s.el.remove(), 260);
+      s.el.inert = true;
+      setTimeout(() => s.el.remove(), calm.matches ? 200 : LEAVE_MS);
     }
   }
+  const before = new Map();
+  for (const el of container.children) if (!el.classList.contains("is-leaving")) before.set(el, el.getBoundingClientRect().left);
   list.forEach((data, i) => {
     let s = strips.get(data.id);
     if (!s) {
@@ -252,6 +327,13 @@ function syncStrips(container, list, kind, keep = list) {
     if (live[i] !== s.el) container.insertBefore(s.el, live[i] || null);
     updateStrip(s, data);
   });
+  // quem só trocou de lugar desliza até o lugar novo
+  if (calm.matches || container.classList.contains("is-sorting")) return;
+  for (const [el, x0] of before) {
+    if (!el.isConnected || el.classList.contains("is-leaving")) continue;
+    const dx = x0 - el.getBoundingClientRect().left;
+    if (Math.abs(dx) > 1) el.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.2, .8, .2, 1)" });
+  }
 }
 
 // ------------------------------------------------------------ abas do navegador e faders visíveis
@@ -292,8 +374,11 @@ function renderTabs(d) {
 }
 
 // o que aparece no mixer: canais e abas, tirando o que escondi no painel "Faders"
+// chave do canal na config (nome, escondido, fixo, ordem)
+const keyOf = (d, kind = d.kind) => (kind === "tab" ? siteKey(d) : kind === "ghost" ? d.key : kind === "master" ? "master" : d.id);
+
 function mixerList(state) {
-  const out = [];
+  let out = [];
   let placed = false;
   const addTabs = () => {
     placed = true;
@@ -309,6 +394,18 @@ function mixerList(state) {
   }
   if (!placed) addTabs();
   if (!dcPlaced) out.push(...callers);
+  // fixos que estão sem som agora: ficam no lugar, apagados
+  const here = new Set(out.map((d) => keyOf(d, d.kind || "app")));
+  for (const [k, v] of Object.entries(cfg)) {
+    if (!v?.pin || hidden.has(k) || here.has(k)) continue;
+    out.push({ id: `pin:${k}`, kind: "ghost", key: k, name: v.label || k, icon: v.img || "", vol: 0, mute: false });
+  }
+  // ordem que eu arrumei arrastando; quem não está nela fica no fim, na ordem de antes
+  const order = cfg._order?.keys || [];
+  if (order.length) {
+    const pos = (d) => { const i = order.indexOf(keyOf(d, d.kind || "app")); return i < 0 ? 1e3 : i; };
+    out = out.map((d, i) => [d, i]).sort((a, b) => pos(a[0]) - pos(b[0]) || a[1] - b[1]).map((x) => x[0]);
+  }
   return out;
 }
 
@@ -326,6 +423,7 @@ function setName(key, name) {
 
 function renderMix(state) {
   mix = state;
+  if (sort) return; // arrastando um canal: a ordem nova entra quando eu soltar
   const list = mixerList(state);
   // Palco central: metade dos apps em cada asa, em volta da tela
   const split = deviceEl.dataset.layout === "d" ? Math.ceil(list.length / 2) : list.length;
@@ -357,7 +455,7 @@ function setBank(b) {
 {
   let start = null;
   mixerPage.addEventListener("pointerdown", (e) => {
-    if (e.target.closest("button, .chip, .pop")) return;
+    if (e.target.closest("button, .chip, .pop, .pan, .strip-name")) return;
     start = { x: e.clientX, y: e.clientY, id: e.pointerId };
   });
   mixerPage.addEventListener("pointermove", (e) => {
@@ -370,7 +468,6 @@ function setBank(b) {
     const mics = mixerPage.dataset.bank === "mic";
     if (dy > 0 && !mics && mix?.mics?.length) setBank("mic");
     else if (dy < 0 && mics) setBank("main");
-    else if (dy > 0 && mics) setBank("main");
   });
   const end = () => { start = null; };
   mixerPage.addEventListener("pointerup", end);
@@ -378,6 +475,149 @@ function setBank(b) {
   document.querySelectorAll(".bank-led").forEach((l) => l.addEventListener("click", () => setBank(l.dataset.bank)));
   setBank("main");
 }
+
+// ------------------------------------------------------------ segurar no nome do canal
+// Segurou: o canal levanta. Arrastou pro lado: muda de lugar (os outros abrem espaço) e a ordem
+// fica salva no notebook. Soltou sem arrastar: abre o canal (nome, fixar).
+const HOLD_MS = 450;
+let sort = null;
+function bindHold(s) {
+  const h = s.name;
+  let timer = 0, st = null;
+  h.addEventListener("contextmenu", (e) => e.preventDefault());
+  h.addEventListener("pointerdown", (e) => {
+    if (s.kind === "output") return;
+    st = { x: e.clientX, y: e.clientY, id: e.pointerId, lifted: false, moved: false };
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!st) return;
+      st.lifted = true;
+      try { h.setPointerCapture(st.id); } catch { /* dedo já saiu */ }
+      s.el.classList.add("is-lifted");
+      navigator.vibrate?.(12);
+    }, HOLD_MS);
+  });
+  h.addEventListener("pointermove", (e) => {
+    if (!st || e.pointerId !== st.id) return;
+    const dx = e.clientX - st.x, dy = e.clientY - st.y;
+    if (!st.lifted) { if (Math.hypot(dx, dy) > 8) { clearTimeout(timer); st = null; } return; }
+    const box = s.el.parentElement;
+    if (!st.moved) {
+      if (Math.abs(dx) < 6 || !box?.matches("#apps")) return;
+      st.moved = true;
+      sortStart(s, st.x);
+    }
+    sortMove(e.clientX);
+  });
+  const end = (e) => {
+    clearTimeout(timer);
+    if (!st || e.pointerId !== st.id) return;
+    const g = st; st = null;
+    if (!g.lifted) return;
+    s.eatClick = true;
+    setTimeout(() => (s.eatClick = false), 0);
+    if (g.moved) return sortEnd();
+    s.el.classList.remove("is-lifted");
+    if (e.type === "pointerup") openChan(s);
+  };
+  h.addEventListener("pointerup", end);
+  h.addEventListener("pointercancel", end);
+}
+
+const liveKids = (box) => [...box.children].filter((el) => !el.classList.contains("is-leaving"));
+function sortStart(s, x) {
+  const box = s.el.parentElement;
+  box.classList.add("is-sorting");
+  s.el.classList.add("is-grabbed");
+  sort = { s, box, x0: x, left0: s.el.offsetLeft };
+}
+function sortMove(x) {
+  const { s, box } = sort;
+  // borda: rola a fileira junto
+  const r = box.getBoundingClientRect();
+  if (x < r.left + 40) box.scrollLeft -= 8;
+  else if (x > r.right - 40) box.scrollLeft += 8;
+  const want = sort.left0 + (x - sort.x0) + (box.scrollLeft - (sort.sl ??= box.scrollLeft));
+  const mid = want + s.el.offsetWidth / 2;
+  const sibs = liveKids(box).filter((el) => el !== s.el);
+  const target = sibs.find((el) => el.offsetLeft + el.offsetWidth / 2 > mid) || null;
+  let next = s.el.nextElementSibling;
+  while (next?.classList.contains("is-leaving")) next = next.nextElementSibling;
+  if (target !== next) {
+    const at = new Map(sibs.map((el) => [el, el.offsetLeft]));
+    box.insertBefore(s.el, target);
+    if (!calm.matches) {
+      for (const el of sibs) {
+        const dx = at.get(el) - el.offsetLeft;
+        if (dx) el.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.2, .8, .2, 1)" });
+      }
+    }
+  }
+  s.el.style.transform = `translateX(${want - s.el.offsetLeft}px)`;
+}
+function sortEnd() {
+  const { s, box } = sort;
+  sort = null;
+  const from = s.el.style.transform;
+  s.el.style.transform = "";
+  s.el.classList.remove("is-grabbed", "is-lifted");
+  if (!calm.matches && from) s.el.animate([{ transform: from }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(.2, .8, .2, 1)" });
+  // a ordem da tela vale; o que não está na tela agora fica guardado no fim
+  const keys = liveKids(box).map((el) => [...strips.values()].find((x) => x.el === el)?.cfgKey).filter(Boolean);
+  const all = [...keys, ...(cfg._order?.keys || []).filter((k) => !keys.includes(k))];
+  cfg._order = { keys: all };
+  send({ t: "chorder", keys: all });
+  box.classList.remove("is-sorting");
+  if (mix) renderMix(mix);
+}
+
+// popover do canal: nome e fixar
+const chanPop = $("chan-pop"), chanName = $("chan-name"), chanPin = $("chan-pin");
+let chanFor = null;
+function openChan(s) {
+  closePop();
+  closeIconPop();
+  chanFor = s;
+  const k = s.cfgKey;
+  chanName.value = s.name.textContent;
+  const canPin = s.kind === "app" || s.kind === "tab" || s.kind === "ghost";
+  chanPin.hidden = !canPin;
+  chanPin.setAttribute("aria-pressed", String(!!cfg[k]?.pin || s.kind === "ghost"));
+  $("chan-reset").hidden = !cfg[k]?.name;
+  placePop(chanPop, s.name);
+  s.el.classList.add("is-open");
+}
+function closeChan() {
+  if (!chanFor) return;
+  const s = chanFor;
+  chanFor = null;
+  chanPop.hidden = true;
+  s.el.classList.remove("is-open");
+  const v = chanName.value.trim();
+  if (v && v !== s.name.textContent) setName(s.cfgKey, v);
+}
+chanName.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); chanName.blur(); closeChan(); } });
+$("chan-reset").addEventListener("click", () => {
+  const s = chanFor;
+  if (!s) return;
+  chanFor = null;
+  chanPop.hidden = true;
+  s.el.classList.remove("is-open");
+  setName(s.cfgKey, "");
+});
+chanPin.addEventListener("click", () => {
+  const s = chanFor;
+  if (!s) return;
+  const on = chanPin.getAttribute("aria-pressed") !== "true";
+  chanPin.setAttribute("aria-pressed", String(on));
+  const img = s.kind === "tab" ? (tabsState.tabs.find((t) => t.id === s.id)?.icon || "") : "";
+  cfg[s.cfgKey] = { ...cfg[s.cfgKey], pin: on || undefined, label: on ? s.name.textContent : undefined };
+  send({ t: "chpin", id: s.cfgKey, pin: on, label: s.name.textContent, img });
+  if (mix) renderMix(mix);
+});
+document.addEventListener("pointerdown", (e) => {
+  if (chanFor && !chanPop.contains(e.target) && !chanFor.name.contains(e.target)) closeChan();
+});
 
 // Arrasto relativo e só pegando na capa: encostar no trilho não mexe em nada, então dá pra
 // rolar os faders pro lado passando o dedo por cima deles.
@@ -411,7 +651,7 @@ function bindFader(s) {
   };
 
   s.track.addEventListener("pointerdown", (e) => {
-    if (!onCap(e.clientY)) return;
+    if (s.kind === "ghost" || !onCap(e.clientY)) return;
     s.track.setPointerCapture(e.pointerId);
     s.dragging = true;
     s.el.classList.add("is-dragging");
@@ -682,6 +922,10 @@ function frame(now) {
     s.level = s.target > s.level ? s.target : Math.max(s.target, s.level - dt * 1.4);
     if (s.level >= s.peak) { s.peak = s.level; s.peakAt = now; }
     else if (now - s.peakAt > 1200) s.peak = Math.max(s.level, s.peak - dt * 0.6);
+    // "ao vivo" enquanto tem som (segura um pouco pra não piscar entre as batidas)
+    if (s.level > 0.05) s.liveAt = now;
+    const live = now - (s.liveAt || -1e9) < 1200;
+    if (live !== s.live) { s.live = live; s.el.classList.toggle("is-live", live); }
     const lit = Math.ceil(s.level * SEGS) / SEGS;
     if (lit !== s.litShown) { s.meter.style.setProperty("--l", lit); s.litShown = lit; }
     s.meter.style.setProperty("--h", Math.ceil(s.peak * SEGS) / SEGS);
@@ -723,6 +967,20 @@ function renderMedia(d) {
   $("play").disabled = !d.active;
   $("timeline").classList.toggle("is-hidden", !d.duration);
   $("dur").textContent = fmt(d.duration || 0);
+  const srcs = d.active ? d.sources || [] : [];
+  const dots = $("np-dots");
+  const dsig = `${srcs.join("|")}#${d.src}#${d.pinned}`;
+  if (dots.dataset.sig !== dsig) {
+    dots.dataset.sig = dsig;
+    dots.hidden = srcs.length < 2;
+    dots.classList.toggle("is-pinned", !!d.pinned);
+    dots.replaceChildren(...srcs.map((n, i) => {
+      const dot = document.createElement("i");
+      dot.title = n;
+      if (i === d.src) dot.className = "is-on";
+      return dot;
+    }));
+  }
 
   if (d.art !== prevArt) paintArt();
   updateVideo();
@@ -737,6 +995,7 @@ function paintArt() {
   if (url === artShown) return;
   artShown = url;
   const art = $("art");
+  ambient(url);
   if (!url) { art.style.backgroundImage = ""; return; }
   const img = new Image();
   img.onload = () => { if (artShown === url) art.style.backgroundImage = `url("${url}")`; };
@@ -756,13 +1015,110 @@ function tickTimeline() {
   $("pos").textContent = fmt(pos);
 }
 
-// toque na tela alterna capa em preto e branco / colorida
-lcd.addEventListener("click", (e) => {
-  if (e.target.closest("#bar")) return;
+// Colorido (padrão) ou preto e branco: no A pela tecla dos controles, no B tocando na barra.
+function toggleColor() {
   lcd.classList.toggle("is-color");
-  store.set("mesa.color", lcd.classList.contains("is-color") ? "1" : "");
+  store.set("mesa.mono", lcd.classList.contains("is-color") ? "" : "1");
+}
+if (store.get("mesa.mono") !== "1") lcd.classList.add("is-color");
+
+// A: tocar na capa mostra os controles por cima (como o mini player do Spotify); somem sozinhos
+let npT = 0;
+function npShow(on = true) {
+  clearTimeout(npT);
+  deviceEl.classList.toggle("np-open", on);
+  if (on) npT = setTimeout(() => deviceEl.classList.remove("np-open"), 4500);
+}
+// arrastar pro lado na tela: passa pro próximo app que está no controle de mídia do Windows
+// (e fica nele até ele fechar); sem arrastar, o Windows decide, com 5 s de paciência
+{
+  let sw = null;
+  lcd.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("#bar, .transport button, .np-mono")) return;
+    sw = { x: e.clientX, y: e.clientY, id: e.pointerId, on: false };
+  });
+  lcd.addEventListener("pointermove", (e) => {
+    if (!sw || e.pointerId !== sw.id) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
+      if (Math.abs(dx) < 12 || (media.sources || []).length < 2) return;
+      sw.on = true;
+      lcd.setPointerCapture(e.pointerId);
+    }
+    $("art").style.transform = `translateX(${dx * 0.35}px)`;
+    $("art").style.transition = "none";
+  });
+  const end = (e) => {
+    if (!sw || e.pointerId !== sw.id) return;
+    const g = sw; sw = null;
+    if (!g.on) return;
+    lcd.eatClick = true;
+    setTimeout(() => (lcd.eatClick = false), 0);
+    const art = $("art");
+    art.style.removeProperty("transition");
+    art.style.removeProperty("transform");
+    const dx = e.clientX - g.x;
+    if (Math.abs(dx) < 60 || e.type === "pointercancel") return;
+    send({ t: "media", a: "pick", v: dx < 0 ? 1 : -1 });
+    if (!calm.matches) {
+      art.animate([{ transform: `translateX(${dx < 0 ? -28 : 28}px)`, opacity: 0.2 }, { transform: "none", opacity: 1 }],
+        { duration: 380, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    }
+  };
+  lcd.addEventListener("pointerup", end);
+  lcd.addEventListener("pointercancel", end);
+}
+
+lcd.addEventListener("click", (e) => {
+  if (lcd.eatClick) return;
+  if (e.target.closest("#bar")) return;
+  if (e.target.closest(".transport button")) return npShow();
+  if (deviceEl.dataset.layout === "e" && !deviceEl.dataset.deck) return npShow(!deviceEl.classList.contains("np-open"));
+  toggleColor();
 });
-if (store.get("mesa.color")) lcd.classList.add("is-color");
+$("np-mono").addEventListener("click", toggleColor);
+
+// Cor da capa (ou da miniatura do vídeo) pro fundo e pro brilho em volta, como o YouTube faz.
+const ambCache = new Map();
+function setAmb(c) { deviceEl.style.setProperty("--amb", c ? c.join(" ") : "38 38 40"); }
+function ambient(url) {
+  if (!url) return setAmb(null);
+  colorOf(url).then((c) => { if (artShown === url) setAmb(c); });
+}
+// cor que mais aparece numa imagem (cor viva pesa mais que cinza), levada pra faixa [lo, hi] de brilho
+function colorOf(url, lo = 70, hi = 185) {
+  const key = `${url}|${lo}|${hi}`;
+  if (ambCache.has(key)) return ambCache.get(key);
+  const job = new Promise((done) => {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    let c = null;
+    try {
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 24;
+      const x = cv.getContext("2d", { willReadFrequently: true });
+      x.drawImage(img, 0, 0, 24, 24);
+      const px = x.getImageData(0, 0, 24, 24).data;
+      let r = 0, g = 0, b = 0, w = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        const mx = Math.max(px[i], px[i + 1], px[i + 2]), mn = Math.min(px[i], px[i + 1], px[i + 2]);
+        const k = 0.08 + ((mx - mn) / 255) ** 2 * (mx / 255) * 4; // cor viva pesa mais que cinza
+        r += px[i] * k; g += px[i + 1] * k; b += px[i + 2] * k; w += k;
+      }
+      c = [r / w, g / w, b / w];
+      const top = Math.max(...c), want = Math.min(hi, Math.max(lo, top)); // nem apagado nem estourado
+      c = c.map((v) => Math.round((v * want) / (top || 1)));
+    } catch { c = null; }
+    done(c);
+  };
+  img.onerror = () => done(null);
+  img.src = url;
+  });
+  ambCache.set(key, job);
+  return job;
+}
 
 let toastTimer = 0;
 function toast(text) {
@@ -921,7 +1277,15 @@ function syncVideo() {
 setInterval(syncVideo, 1000);
 
 // o player tem 480×270 de verdade (o YouTube não gosta de player minúsculo) e é reduzido na tela
-new ResizeObserver(() => $("art").style.setProperty("--vs", $("art").clientWidth / 480)).observe($("art"));
+// escala do vídeo: no A/B ele cobre a janela inteira (corta o que sobra, centralizado, +18% pra esconder as bordas do YouTube)
+new ResizeObserver(() => {
+  const v = $("video"), art = $("art"), W = v.clientWidth, H = v.clientHeight;
+  art.style.setProperty("--vs", W / 480);
+  const s = Math.max(W / 480, H / 270) * 1.18;
+  art.style.setProperty("--vsc", s);
+  art.style.setProperty("--tx", `${(W - 480 * s) / 2}px`);
+  art.style.setProperty("--ty", `${(H - 270 * s) / 2}px`);
+}).observe($("video"));
 
 // ------------------------------------------------------------ pads
 const SLOTS = 15;
@@ -982,10 +1346,23 @@ function renderPads(list) {
   pads = list;
   padsEl.replaceChildren();
   for (let slot = 0; slot < SLOTS; slot++) padsEl.append(makePad(list.find((x) => x.slot === slot), slot));
+  fitPads();
   const home = list.filter((p) => p.home).sort((a, b) => a.slot - b.slot).slice(0, QUICK);
   $("quick").replaceChildren(...home.map((p) => makePad(p, p.slot)));
   $("quick").dataset.count = home.length;
 }
+
+// A/B: pads quadrados; se sobra altura, aparecem mais fileiras (as vazias com "+" pra adicionar)
+function fitPads() {
+  const on = deviceEl.dataset.layout === "e";
+  const W = padsEl.clientWidth, H = padsEl.parentElement.clientHeight;
+  const cell = (W - 16) / 3;
+  const rows = on && cell > 0 ? Math.max(3, Math.min(SLOTS / 3, Math.floor((H + 8) / (cell + 8)))) : SLOTS / 3;
+  padsEl.style.setProperty("--rows", rows);
+  padsEl.style.setProperty("--cell", on ? `${Math.floor(cell)}px` : "1fr");
+  [...padsEl.children].forEach((b, i) => (b.hidden = on && i >= rows * 3));
+}
+new ResizeObserver(() => fitPads()).observe(padsEl.parentElement);
 
 // Toque dispara. Segurar levanta o pad: arrastar e soltar em outro lugar troca os dois de posição;
 // soltar sem arrastar abre o editor. (Na fileira do início, segurar só abre o editor.)
@@ -1257,7 +1634,7 @@ function panelKeys() {
   const spOn = (media.active && media.source === "Spotify") || !!spnow.playing;
   const playing = ytOn ? "youtube" : spOn ? "spotify" : null;
   const call = dc?.status === "ok" && dc.channel ? "discord" : null;
-  return [...new Set([playing, call, panel.pinned].filter(Boolean))].slice(0, 3);
+  return [...new Set([playing, call, panel.pinned, panel.tab].filter(Boolean))].slice(0, 4);
 }
 
 function makeSlot(key) {
@@ -1317,6 +1694,8 @@ function renderPanel(all = false) {
   panelEl.dataset.n = keys.length;
   panelEl.dataset.open = keys.filter((k) => !folded.has(foldKey(k))).length;
   deviceEl.classList.toggle("no-panel", keys.length === 0);
+  for (const [k, sl] of slots) sl.el.classList.toggle("is-tab", k === panel.tab && k !== panel.pinned);
+  if (deviceEl.dataset.drawer === "open" && !hasContent()) closeDrawer(true);
   for (const k of added) if (FETCHED.has(k)) send({ t: "panel", app: k });
   // fila do Spotify: a API não avisa quando muda, então pergunta de tempos em tempos
   // (devagar: o Spotify limita pedidos; a troca de música já pede na hora pelo spnow)
@@ -1325,6 +1704,7 @@ function renderPanel(all = false) {
   }, 30000);
   if (!keys.includes("spotify") && panel.timer) { clearInterval(panel.timer); panel.timer = 0; }
   for (const k of keys) if (all || added.includes(k)) renderSlot(k);
+  paintRail();
 }
 
 function renderSlot(k) {
@@ -1340,15 +1720,70 @@ function renderSlot(k) {
   if (k.startsWith("app:")) return renderApp(k.slice(4));
 }
 
+// ---------- gaveta (deitado, A e B): uma barra lateral à direita com os ícones das partes (o que
+// toca, call, o que eu abri) e, no A, as teclas do rodapé. Tocar ou arrastar pra esquerda abre a
+// gaveta por cima do centro; pra direita (ou tocar no fundo) fecha. Saídas, microfone e faders são
+// abas: abrem sozinhos na gaveta, sem virar mais uma parte. Em pé continua tudo como era.
+const landscape = matchMedia("(orientation: landscape)");
+const railEl = $("rail"), railParts = $("rail-parts");
+const outEl = document.querySelector(".page-outputs");
+const scrim = document.createElement("div");
+scrim.className = "drawer-scrim";
+deviceEl.append(scrim);
+deviceEl.dataset.drawer = "closed";
+panel.view = "parts";
+const drawerOn = () => landscape.matches && deviceEl.dataset.layout === "e";
+const isTabView = (v) => v === "outputs" || v === "mic" || v === "faders";
+const hasContent = () => panel.view !== "parts" || panel.keys.some((k) => k !== panel.tab);
+let drawerT = 0;
+
 function dockState() {
+  const open = deviceEl.dataset.drawer === "open";
+  const v = drawerOn() && open ? panel.view : null;
   deviceEl.dataset.panel = panel.outputs ? "outputs" : "info";
-  $("dock-outputs").setAttribute("aria-pressed", String(!!panel.outputs));
-  $("dock-faders").setAttribute("aria-pressed", String(!panel.outputs && panel.pinned === "faders"));
-  $("dock-mic").setAttribute("aria-pressed", String(!panel.outputs && panel.pinned === "mic"));
+  deviceEl.dataset.view = panel.view;
+  $("dock-outputs").setAttribute("aria-pressed", String(drawerOn() ? v === "outputs" : !!panel.outputs));
+  $("dock-faders").setAttribute("aria-pressed", String(drawerOn() ? v === "faders" : !panel.outputs && panel.pinned === "faders"));
+  $("dock-mic").setAttribute("aria-pressed", String(drawerOn() ? v === "mic" : !panel.outputs && panel.pinned === "mic"));
+  paintRail();
+}
+
+function setView(v) {
+  panel.view = v;
+  panel.outputs = v === "outputs";
+  const tab = v === "mic" || v === "faders" ? v : null;
+  if (tab !== panel.tab) { panel.tab = tab; renderPanel(); }
+  if (tab && slots.has(tab)) renderSlot(tab);
+  dockState();
+}
+
+function openDrawer(force = false) {
+  if (!drawerOn() || (!force && !hasContent())) return;
+  clearTimeout(drawerT);
+  deviceEl.dataset.drawer = "open";
+  dockState();
+}
+function closeDrawer(now = false) {
+  clearTimeout(drawerT);
+  const was = deviceEl.dataset.drawer === "open";
+  deviceEl.dataset.drawer = "closed";
+  dockState();
+  if (!drawerOn()) return;
+  // a aba (saídas/mic/faders) só sai depois que a gaveta terminou de fechar
+  if (isTabView(panel.view)) {
+    drawerT = setTimeout(() => { if (deviceEl.dataset.drawer !== "open") setView("parts"); }, now || !was || calm.matches ? 0 : 450);
+  }
+}
+// tecla de aba: abre a gaveta nela; tocar de novo na aba aberta fecha
+function tabKey(v) {
+  if (deviceEl.dataset.drawer === "open" && panel.view === v) return closeDrawer();
+  setView(v);
+  openDrawer(true);
 }
 
 // abrir algo no painel (pad, nome de canal, teclas do rodapé); "outputs" troca o painel pelas saídas
 function showPanel(key, padId = null) {
+  if (drawerOn() && isTabView(key)) { setView(key); openDrawer(true); return; }
   if (key === "outputs") { panel.outputs = true; dockState(); return; }
   panel.outputs = false;
   const again = panel.pinned === key;
@@ -1358,6 +1793,10 @@ function showPanel(key, padId = null) {
   if (again && slots.has(key)) slots.get(key).el.remove(), slots.delete(key); // redesenha do zero
   renderPanel();
   if (slots.has(key)) renderSlot(key); // já estava aberto como automático: atualiza o cabeçalho
+  if (!drawerOn()) return;
+  // pedido direto (nome do canal) abre; pad só acende o ícone na barra pra não cobrir os pads
+  if (padId) pingRail(key);
+  else { setView("parts"); openDrawer(); }
 }
 
 function unpin() {
@@ -1376,13 +1815,232 @@ function panelData(key, data) {
   if (slots.has(key)) renderSlot(key);
   if (key === "discord" && slots.has("mic")) renderSlot("mic");
   if (key === "discord" && mix) renderMix(mix);
+  if (key === "discord") paintRail();
 }
 
-$("dock-faders").addEventListener("click", () => (panel.pinned === "faders" && !panel.outputs ? unpin() : showPanel("faders")));
-$("dock-mic").addEventListener("click", () => (panel.pinned === "mic" && !panel.outputs ? unpin() : showPanel("mic")));
+$("dock-faders").addEventListener("click", () => {
+  if (drawerOn()) return tabKey("faders");
+  panel.pinned === "faders" && !panel.outputs ? unpin() : showPanel("faders");
+});
+$("dock-mic").addEventListener("click", () => {
+  if (drawerOn()) return tabKey("mic");
+  panel.pinned === "mic" && !panel.outputs ? unpin() : showPanel("mic");
+});
 $("dock-outputs").addEventListener("click", () => {
+  if (drawerOn()) return tabKey("outputs");
   if (panel.outputs) { panel.outputs = false; dockState(); } else showPanel("outputs");
 });
+
+// ícones das partes na barra (o mesmo ícone do cabeçalho de cada parte)
+function paintRail() {
+  if (!railParts) return;
+  const on = deviceEl.dataset.drawer === "open" && panel.view === "parts";
+  const keys = (panel.keys || []).filter((k) => k !== panel.tab);
+  const old = new Map([...railParts.querySelectorAll("[data-key]")].map((b) => [b.dataset.key, b]));
+  railParts.replaceChildren(...keys.map((k) => {
+    let b = old.get(k);
+    if (!b) {
+      b = document.createElement("button");
+      b.className = "rail-part";
+      b.dataset.key = k;
+      b.addEventListener("click", () => {
+        if (deviceEl.dataset.drawer === "open" && panel.view === "parts") return closeDrawer();
+        setFolded(k, false);
+        setView("parts");
+        openDrawer();
+        slots.get(k)?.el.scrollIntoView({ block: "nearest" });
+      });
+    }
+    const sl = slots.get(k);
+    const html = sl?.icon.innerHTML || icon("app-window");
+    if (b.dataset.html !== html) { b.innerHTML = html; b.dataset.html = html; }
+    b.setAttribute("aria-label", sl?.title.textContent || "Parte do painel");
+    b.setAttribute("aria-pressed", String(on));
+    const q = railCovers(k, old.get(`q:${k}`));
+    if (!q) return b;
+    let g = old.get(`g:${k}`);
+    if (!g) {
+      g = document.createElement("div");
+      g.className = "rail-group";
+      g.dataset.key = `g:${k}`;
+    }
+    g.dataset.svc = k;
+    if (g.children[0] !== b || g.children[1] !== q || g.children.length !== 2) g.replaceChildren(b, q);
+    return g;
+  }));
+  requestAnimationFrame(fitRail);
+}
+
+// Cada grupo mostra só as capas que cabem: o espaço da barra é dividido entre os grupos
+// (quem tem pouca coisa cede o que sobra pros outros). A que toca é sempre a primeira.
+const RAIL_ITEM = 54, RAIL_GROUP = 58; // capa 46 + 8 de espaço; moldura + ícone do grupo
+function fitRail() {
+  const groups = [...railParts.querySelectorAll(":scope > .rail-group")];
+  if (!groups.length) return;
+  const kids = [...railParts.children];
+  let free = railParts.clientHeight - 12 - 8 * (kids.length - 1);
+  for (const el of kids) free -= el.classList.contains("rail-group") ? RAIL_GROUP : el.offsetHeight;
+  const need = groups.map((g) => g.querySelectorAll(".rail-cover").length);
+  const got = need.map((n) => Math.min(n, 1));
+  let left = Math.floor(free / RAIL_ITEM) - got.reduce((a, b) => a + b, 0);
+  while (left > 0) {
+    const open = got.map((n, i) => (n < need[i] ? i : -1)).filter((i) => i >= 0);
+    if (!open.length) break;
+    const share = Math.max(1, Math.floor(left / open.length));
+    for (const i of open) {
+      const add = Math.min(share, need[i] - got[i], left);
+      got[i] += add;
+      left -= add;
+      if (!left) break;
+    }
+  }
+  groups.forEach((g, i) => g.querySelectorAll(".rail-cover").forEach((c, j) => { c.hidden = j >= got[i]; }));
+}
+new ResizeObserver(() => fitRail()).observe(railParts);
+
+// fila na barra: capinhas da que toca e das próximas; tocar numa capa toca ela
+panel.rail = {};
+function railQueue(key, items) {
+  panel.rail[key] = items.slice(0, 40);
+  paintRail();
+}
+function railCovers(k, el) {
+  const dc = panel.data.discord;
+  const items = k === "discord"
+    ? (dc?.status === "ok" && dc.channel ? dc.members : []).map((m) => ({
+      key: `${m.id}${m.speaking && !m.mute ? "!" : ""}`, title: m.name, img: m.avatar, current: !!m.speaking && !m.mute, av: true,
+      pick: () => { setView("parts"); openDrawer(); slots.get("discord")?.el.scrollIntoView({ block: "nearest" }); },
+    }))
+    : panel.rail[k];
+  if (!items?.length || (k !== "spotify" && k !== "youtube" && k !== "discord")) return null;
+  const sig = items.map((i) => `${i.key}${i.current ? "*" : ""}`).join("|");
+  if (el && el.dataset.sig === sig) return el;
+  el = document.createElement("div");
+  el.className = "rail-q";
+  el.dataset.key = `q:${k}`;
+  el.dataset.sig = sig;
+  for (const it of items) {
+    const b = document.createElement("button");
+    b.className = `rail-cover${it.av ? " is-av" : ""}`;
+    b.setAttribute("aria-current", String(!!it.current));
+    b.setAttribute("aria-label", it.av ? it.title : it.current ? `Tocando: ${it.title}` : `Tocar ${it.title}`);
+    if (it.av && !it.img) b.textContent = (it.title[0] || "?").toUpperCase();
+    if (it.img) b.style.backgroundImage = `url("${it.img.replace(/"/g, "%22")}")`;
+    b.addEventListener("click", () => {
+      if (it.av) return it.pick();
+      if (it.current || !it.pick) return;
+      it.pick();
+      b.classList.add("is-picked");
+    });
+    el.append(b);
+  }
+  return el;
+}
+function pingRail(key) {
+  const b = railParts?.querySelector(`[data-key="${CSS.escape(key)}"]`);
+  if (!b) return;
+  b.classList.remove("is-new");
+  void b.offsetWidth;
+  b.classList.add("is-new");
+  setTimeout(() => b.classList.remove("is-new"), 3400);
+}
+
+// No A deitado, as teclas do rodapé (e a marca) mudam pra barra lateral; em pé e no B voltam.
+const dockEl = document.querySelector(".dock");
+const dockOrder = [...dockEl.children];
+const brandEl = document.querySelector(".brand");
+const brandHome = [brandEl.parentElement, brandEl.nextElementSibling];
+function placeDock() {
+  if (drawerOn() && !deviceEl.dataset.deck) {
+    if ($("dock-outputs").parentElement === $("rail-tabs")) return;
+    $("rail-tabs").append($("dock-outputs"), $("dock-mic"), $("dock-faders"));
+    $("rail-sys").append(...dockOrder.filter((b) => b.id === "dock-update" || b.dataset.system));
+    railEl.append(brandEl);
+  } else if ($("dock-outputs").parentElement !== dockEl) {
+    dockEl.append(...dockOrder);
+    brandHome[0].insertBefore(brandEl, brandHome[1]);
+  }
+}
+
+scrim.addEventListener("click", () => closeDrawer());
+
+// menu de 3 barras na barra lateral (A deitado): saídas, mic, faders e bloquear/reiniciar/desligar
+const railMenu = $("rail-menu"), railPop = $("rail-pop");
+function menuOpen(on) {
+  railPop.hidden = !on;
+  railMenu.setAttribute("aria-expanded", String(on));
+}
+railMenu.addEventListener("click", () => menuOpen(railPop.hidden));
+// abas fecham o menu (a gaveta abre); as teclas do PC ficam (segurar pra confirmar)
+railPop.addEventListener("click", (e) => { if (e.target.closest("#dock-outputs, #dock-mic, #dock-faders")) menuOpen(false); });
+document.addEventListener("pointerdown", (e) => {
+  if (!railPop.hidden && !railPop.contains(e.target) && !railMenu.contains(e.target)) menuOpen(false);
+});
+landscape.addEventListener("change", () => {
+  clearTimeout(drawerT);
+  deviceEl.dataset.drawer = "closed";
+  menuOpen(false);
+  setView(panel.outputs && !landscape.matches ? "outputs" : "parts");
+  placeDock();
+});
+
+// arrastar: da barra pra esquerda abre; na gaveta aberta, pra direita fecha. A gaveta segue o dedo.
+{
+  const SPAN = 220; // px de arrasto pra abrir de vez
+  let d = null, eatClick = false;
+  const target = () => (panel.view === "outputs" ? outEl : panelEl);
+  const paint = (p) => {
+    const t = target();
+    t.style.transform = `translateX(${(1 - p) * 48}px)`;
+    t.style.opacity = String(p);
+    scrim.style.opacity = String(p);
+  };
+  const down = (e) => {
+    if (!drawerOn() || e.target.closest("input, .hslider")) return;
+    const open = deviceEl.dataset.drawer === "open";
+    if (!open && !hasContent()) return;
+    d = { x: e.clientX, y: e.clientY, id: e.pointerId, el: e.currentTarget, on: false, open, v: 0, px: e.clientX, pt: e.timeStamp, p: open ? 1 : 0 };
+  };
+  const move = (e) => {
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { d = null; return; } // é rolagem da lista
+      if (Math.abs(dx) < 10 || (d.open ? dx < 0 : dx > 0)) return;
+      d.on = true;
+      d.el.setPointerCapture(e.pointerId);
+      clearTimeout(drawerT);
+      deviceEl.classList.add("is-dragging");
+      deviceEl.dataset.drawer = "open";
+    }
+    let p = d.open ? 1 - dx / SPAN : -dx / SPAN;
+    if (p > 1) p = 1 + (1 - 1 / (1 + (p - 1) * 0.6)) * 0.08; // passou do aberto: resiste
+    d.p = Math.max(0, p);
+    paint(d.p);
+    const dt = e.timeStamp - d.pt;
+    if (dt > 0) d.v = 0.7 * ((e.clientX - d.px) / dt) + 0.3 * d.v;
+    d.px = e.clientX; d.pt = e.timeStamp;
+  };
+  const end = (e) => {
+    if (!d || e.pointerId !== d.id) return;
+    const g = d; d = null;
+    if (!g.on) return;
+    eatClick = true;
+    setTimeout(() => (eatClick = false), 0);
+    deviceEl.classList.remove("is-dragging");
+    for (const t of [panelEl, outEl, scrim]) t.style.removeProperty("transform"), t.style.removeProperty("opacity");
+    // decide pelo lugar onde a gaveta ia parar com o embalo do dedo
+    const projected = g.p - (g.v * 180) / SPAN;
+    if (projected > 0.5) openDrawer(true); else closeDrawer();
+  };
+  for (const el of [railEl, panelEl, outEl]) {
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+    el.addEventListener("click", (e) => { if (eatClick) { eatClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  }
+}
 
 renderPanel();
 
@@ -1401,6 +2059,7 @@ function head(kicker, title, iconHtml) {
   cur.close.hidden = cur.key !== panel.pinned;
   cur.open.hidden = !panel.padId || cur.key !== panel.pinned;
   paintFold(cur);
+  paintRail();
 }
 
 function note(html) {
@@ -1443,8 +2102,13 @@ function section(title, count) {
 }
 
 function renderYouTube(q) {
-  head("YouTube", q?.kind === "playlist" ? q.title : q?.kind === "queue" ? "Fila" : "A seguir", icon("video"));
+  head("YouTube", q?.kind === "playlist" ? q.title : q?.kind === "queue" ? "Fila" : "A seguir", icon("youtube"));
   pFoot.replaceChildren();
+  const cur = q?.items?.findIndex((i) => i.current) ?? -1;
+  railQueue("youtube", (q?.items || []).slice(Math.max(0, cur)).map((i) => ({
+    key: i.id, title: i.title, current: i.current, img: `https://i.ytimg.com/vi/${i.id}/mqdefault.jpg`,
+    pick: () => send({ t: "ytplay", id: i.id }),
+  })));
   if (!q || !q.items?.length) return note("Nada na fila. Abra um vídeo ou uma playlist no YouTube do notebook (com a extensão da Mesa instalada).");
   const list = trackList(q.items.map((i) => ({ ...i, img: `https://i.ytimg.com/vi/${i.id}/mqdefault.jpg` })),
     (it) => send({ t: "ytplay", id: it.id }), true);
@@ -1453,8 +2117,13 @@ function renderYouTube(q) {
 }
 
 function renderSpotify(d) {
-  head("Spotify", d?.context?.name || (d?.now ? "Fila" : "Spotify"), icon("music"));
+  head("Spotify", d?.context?.name || (d?.now ? "Fila" : "Spotify"), icon("spotify"));
   pFoot.replaceChildren();
+  // na barra: a que toca agora e as próximas (a fila do Spotify já inclui o resto da playlist)
+  railQueue("spotify", d?.status === "ok" ? [
+    ...(d.now ? [{ ...d.now, current: true }] : []),
+    ...(d.queue || []).map((i) => ({ ...i, pick: () => send({ t: "spplay", uri: i.uri }) })),
+  ].map((i) => ({ key: i.uri, title: i.title, img: i.img, current: i.current, pick: i.pick })) : []);
   if (!d) return note("Carregando…");
   if (d.status === "setup") return note(`Falta ligar o Spotify na Mesa.<br>No notebook, siga o passo a passo <b>Spotify</b> do arquivo <code>PROMPT.md</code> (5 min).`);
   if (d.status === "login") {
@@ -1920,36 +2589,87 @@ keepAwake();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
-// ------------------------------------------------------------ layouts (fase de escolha)
-// Toque na marca MESACONTROL pra passar pelos layouts; o escolhido fica salvo neste aparelho.
+// ------------------------------------------------------------ layouts
+// E e B são o mesmo aparelho (B = E com trilho à esquerda, data-deck="b"); três dedos pra cima
+// alternam entre os dois. O, A, C, D são tentativas antigas (só pelo ?layout= no endereço).
 const LAYOUTS = [
   ["o", "Original"],
   ["a", "A · Barra no topo"],
-  ["b", "B · Trilho lateral"],
+  ["b", "B · Barra lateral"],
   ["c", "C · Master à direita"],
   ["d", "D · Palco central"],
-  ["e", "E · Painel"],
+  ["e", "A · Painel"],
 ];
 const portrait = matchMedia("(orientation: portrait)");
+let layoutId = "e";
 
 function setLayout(id) {
-  if (!LAYOUTS.some(([k]) => k === id)) id = "o";
-  deviceEl.dataset.layout = id;
+  if (!LAYOUTS.some(([k]) => k === id)) id = "e";
+  layoutId = id;
+  deviceEl.dataset.layout = id === "b" ? "e" : id;
+  if (id === "b") deviceEl.dataset.deck = "b"; else delete deviceEl.dataset.deck;
   // tela "larga" (numa barra) ou "estreita" (numa coluna): muda como o vídeo se arruma
-  const wide = id === "a" || id === "b" || (portrait.matches && (id === "o" || id === "c"));
+  const wide = id === "a" || (portrait.matches && (id === "o" || id === "c"));
   deviceEl.classList.toggle("lcd-wide", wide);
   store.set("mesa.layout3", id);
+  // no A/B os controles moram dentro do "tocando agora"
+  const tr = document.querySelector(".transport");
+  if (deviceEl.dataset.layout === "e") lcd.insertBefore(tr, $("timeline"));
+  else $("quick").before(tr);
+  clearTimeout(drawerT);
+  deviceEl.dataset.drawer = "closed";
+  setView("parts");
+  placeDock();
   if (mix) renderMix(mix);
 }
-portrait.addEventListener("change", () => setLayout(deviceEl.dataset.layout));
-$("wordmark").addEventListener("click", () => {
-  const i = LAYOUTS.findIndex(([k]) => k === deviceEl.dataset.layout);
-  const [id, name] = LAYOUTS[(i + 1) % LAYOUTS.length];
-  setLayout(id);
-  toast(`Layout\n${name}`);
-});
-setLayout(new URLSearchParams(location.search).get("layout") || store.get("mesa.layout3") || "e");
+portrait.addEventListener("change", () => setLayout(layoutId));
 
+// três dedos arrastando pra cima: A <-> B. O aparelho sobe junto com os dedos e a troca anima.
+{
+  let y0 = null, done = false;
+  const avgY = (t) => [...t].reduce((s, x) => s + x.clientY, 0) / t.length;
+  const settle = () => {
+    deviceEl.style.transition = "transform .45s var(--ease-out), filter .45s var(--ease-out)";
+    deviceEl.style.transform = "";
+    deviceEl.style.filter = "";
+    setTimeout(() => (deviceEl.style.transition = ""), 460);
+  };
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 3) { y0 = avgY(e.touches); done = false; }
+    else if (e.touches.length > 3) y0 = null;
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (y0 === null || done || e.touches.length !== 3) return;
+    const dy = Math.min(0, avgY(e.touches) - y0);
+    if (!calm.matches) {
+      deviceEl.style.transition = "none";
+      deviceEl.style.transform = `translateY(${dy * 0.35}px) scale(${1 + dy / 3000})`;
+      deviceEl.style.filter = `brightness(${1 + dy / 900})`;
+    }
+    if (dy > -90) return;
+    done = true;
+    y0 = null;
+    const id = layoutId === "b" ? "e" : "b";
+    const swap = () => {
+      deviceEl.style.transition = "none";
+      deviceEl.style.transform = "";
+      deviceEl.style.filter = "";
+      setLayout(id);
+      toast(id === "b" ? "Layout\nB" : "Layout\nA");
+    };
+    if (document.startViewTransition && !calm.matches) {
+      document.documentElement.classList.add("vt-layout");
+      document.startViewTransition(swap).finished.finally(() => document.documentElement.classList.remove("vt-layout"));
+    } else swap();
+  }, { passive: true });
+  document.addEventListener("touchend", (e) => {
+    if (e.touches.length >= 3) return;
+    if (y0 !== null && !done) settle();
+    y0 = null;
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { if (y0 !== null) settle(); y0 = null; }, { passive: true });
+}
+setLayout(new URLSearchParams(location.search).get("layout") || store.get("mesa.layout3") || "e");
 setMode(store.get("mesa.mode") || "mixer");
 setLink(false);
 connect();

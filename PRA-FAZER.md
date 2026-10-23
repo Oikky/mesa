@@ -3,6 +3,10 @@
 Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 
 ## Esperando o usuário
+- [ ] Instalar o **Equalizer APO** no notebook (download aberto no navegador em 22/10; rodar o instalador,
+      marcar a saída no Configurator, reiniciar o PC).
+      Depois o cartão "EQ · saída" ao lado dos faders vira o equalizador (escreve `mesa.txt` na pasta
+      config do APO). Testar mexendo de leve, com música baixa.
 - [ ] Recarregar a extensão em `edge://extensions` (↻ no card da Mesa) — **versão 1.5.0 (volume, medidor e saída por aba; fila do YouTube pelos dados) pede acesso
       a todos os sites** (precisa pra mexer no volume de qualquer aba): aceitar. Depois dar F5 nas abas
       que já estavam abertas (sem F5 a aba aparece, mas só o mute funciona; o painel avisa).
@@ -38,12 +42,48 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - [ ] Testar de verdade no Tab S6 Lite: vários dedos ao mesmo tempo, tela cheia, tela sem apagar,
       reconexão, vídeo sincronizado, painel, segurar pra reiniciar/desligar.
 - [ ] Testar Spotify e Discord com as contas reais (ainda não rodaram com dados de verdade).
-- [ ] Quando o layout E estiver aprovado de vez: apagar os layouts O/A/B/C/D (CSS/JS) e o toque na
-      marca que troca layout.
+- [ ] Testar no tablet: barra lateral e gaveta (puxar, abas Saídas/Mic/Faders), três dedos pra cima
+      (A <-> B, com animação), controles por cima da capa no A, cor da capa, banco de mics (arrastar
+      pra baixo traz os mics).
+- [ ] Conferir no tablet a fila na barra lateral (capinhas; tocar numa toca ela). No A cabem ~3, o resto rola.
+- [ ] Apagar os layouts antigos O/A/C/D (CSS/JS); hoje só abrem pelo `?layout=` no endereço.
 - [ ] Pads: hoje o layout E mostra só os 9 primeiros; decidir se tem página extra ou rolagem.
 - [ ] Pad "Mime" do desenho: descobrir o que é (app/atalho) e o que o painel dele deve mostrar.
 
+## Próximo (pedido em 22/10)
+- [ ] Pads com sugestões: tocar no pad do YouTube/Spotify/etc. mostra o que já tocou, playlists minhas;
+      Create 26.2 deixa escolher o mundo/mapa pra abrir. Vale pra todos os pads (cada app com sua fonte).
+
 ## Feito (resumo)
+- 22/10/2026: EQ saiu da tela (o servidor continua com `eq.py`). Faders com largura padrão (112 px,
+  encolhem até 84 se faltar lugar); L/R também na aba (extensão 1.6.0: StereoPanner; recarregar + F5).
+  Canal chega abrindo espaço e sai apagando/encolhendo, vizinhos deslizam. Mute = tecla do tamanho do
+  fader com ícone, clara quando mudo. Segurar no nome: renomear, fixar (fica apagado sem som) ou
+  arrastar pra mudar a ordem (`chpin`/`chorder` em `config/channels.json`, chave `_order`).
+  Fila na barra em grupos (YouTube, Spotify, Discord), com as capas que cabem divididas entre eles.
+  Vídeo do A em 16:9. "Tocando agora": só troca de app se o Windows ficar 5 s no outro; arrastar pro
+  lado escolhe o app (pontinhos embaixo). Dependência nova: `winrt-Windows.Foundation.Collections`.
+- 22/10/2026: medidor da aba (extensão 1.5.1) não fica mudo quando o YouTube troca de música (o
+  `<video>` troca a trilha de áudio; o medidor agora passa pra trilha nova). Recarregar a extensão + F5.
+- 22/10/2026: canais acendem na cor do app enquanto têm som (sobe devagar, desce mais devagar).
+  Balanço L/R por app e no master (régua embaixo do nome; arrastar, dois toques centraliza).
+  Cartão do EQ ao lado dos faders quando sobra espaço (some com muitos canais ou no banco de mics).
+  Pads: mais fileiras quando cabe (até 15), vazias com "+". B: barra de teclas igual à da direita,
+  sem a marca; vídeo na barra do player sem a miniatura atrás; fila na barra lateral.
+- 22/10/2026: "tocando agora" no estilo do Spotify (A: cartão do mini player com controles por cima
+  ao tocar; B: barra do player, vídeo 16:9 pequeno no lugar da capa), cor ambiente da capa/miniatura
+  com P&B opcional. Teclas do rodapé viraram barra lateral no A (abas que abrem sozinhas na gaveta,
+  sem empilhar parte nova). Pads quadrados e maiores. Aba do navegador igual aos outros faders.
+  Banco de mics invertido (arrastar pra baixo traz os mics) e indicadores viraram mic/caixa de som.
+  Três dedos com animação. E → "A" nos nomes. Spotify: a fila da playlist voltou (o Spotify desligou
+  `/playlists/{id}/tracks`, que respondia 403 "Forbidden"; agora é `/items`).
+- 22/10/2026: deitado, o painel da direita virou gaveta: trilho fino com os ícones de cada parte
+  (quem fala na call aparece embaixo); arrastar pra esquerda ou tocar abre por cima do centro, pra
+  direita ou tocar no fundo fecha. Pedido direto (rodapé, nome do canal) abre; pad só pisca o LED do
+  ícone no trilho. Saídas abrem como gaveta também. Capa grande na tela, transporte no estilo do
+  mini player do Spotify (play num círculo claro). Tocar em MESACONTROL não troca mais layout: três
+  dedos pra cima alternam E <-> B. B refeito em cima do E (`data-deck="b"`): trilho à esquerda com as
+  teclas do rodapé e a marca em pé, faixa de cima com tela larga + transporte + knob do volume geral.
 - 22/10/2026: fila do YouTube lida dos dados do YouTube (`extension/yt-data.js`, mundo da página):
   vem completa até em aba de fundo, com nome do canal (antes lia a tela, que monta aos poucos).
   Parte do Spotify aparece quando a conta diz que está tocando (`spnow`, vale pro Spotify Web/Opera);

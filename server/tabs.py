@@ -28,6 +28,7 @@ class Tabs:
                 "icon": icon if len(icon) <= 30000 else "",
                 "vol": min(1.0, max(0.0, float(t.get("v") if t.get("v") is not None else 1))),
                 "mute": bool(t.get("mute")),
+                "bal": min(1.0, max(-1.0, float(t.get("bal") or 0))),  # L/R da aba (-1..1)
                 "audible": bool(t.get("audible")),
                 "ctrl": bool(t.get("ctrl")),
                 "sink": str(t["sink"])[:200] if t.get("sink") else None,  # nome da saída escolhida

@@ -36,10 +36,12 @@
           <div class="lcd-bar" id="bar"><i id="bar-fill"></i></div>
           <span id="dur">0:00</span>
         </div>
+        <div class="lcd-dots" id="np-dots" aria-hidden="true"></div>
         <div class="lcd-toast" id="toast" aria-live="polite"></div>
       </div>
 
       <div class="transport">
+        <button class="key key-side np-mono" id="np-mono" aria-label="Preto e branco ou colorido"><svg><use href="/icons/sprite.svg#i-contrast"/></svg></button>
         <button class="key key-side" id="prev" aria-label="Anterior"><svg><use href="/icons/sprite.svg#i-skip-back"/></svg></button>
         <button class="key key-main" id="play" aria-label="Tocar ou pausar"><svg><use id="play-icon" href="/icons/sprite.svg#i-play"/></svg></button>
         <button class="key key-side" id="next" aria-label="Próxima"><svg><use href="/icons/sprite.svg#i-skip-forward"/></svg></button>
@@ -73,8 +75,8 @@
         <div class="strips strips-main" id="main"></div>
         <div class="strips strips-mic" id="mics" aria-label="Microfones"></div>
         <div class="bank" role="group" aria-label="Banco de faders">
-          <button class="bank-led" data-bank="main" aria-label="Faders de som" aria-pressed="true"></button>
-          <button class="bank-led" data-bank="mic" aria-label="Faders dos microfones" aria-pressed="false"></button>
+          <button class="bank-led" data-bank="mic" aria-label="Faders dos microfones (entrada)" aria-pressed="false"><svg><use href="/icons/sprite.svg#i-mic"/></svg></button>
+          <button class="bank-led" data-bank="main" aria-label="Faders de som (saída)" aria-pressed="true"><svg><use href="/icons/sprite.svg#i-speaker"/></svg></button>
         </div>
         <p class="empty" id="apps-empty">Nenhum app tocando som agora.</p>
       </section>
@@ -95,6 +97,19 @@
     <!-- E · painel da direita: até 3 partes (o que toca, a call, o que eu abri); montado pelo app.js -->
     <aside class="panel" id="panel" aria-live="polite"></aside>
 
+    <!-- A/B deitado: barra lateral (ícones das partes; no A também as teclas do rodapé, movidas pelo app.js) -->
+    <nav class="rail" id="rail" aria-label="Barra lateral">
+      <div class="rail-parts" id="rail-parts"></div>
+      <span class="rail-gap"></span>
+      <div class="rail-menu-wrap">
+        <button class="rail-menu" id="rail-menu" aria-label="Menu: saídas, microfone, faders e o PC" aria-expanded="false" aria-controls="rail-pop"><svg><use href="/icons/sprite.svg#i-menu"/></svg></button>
+        <div class="rail-pop" id="rail-pop" hidden>
+          <div class="rail-tabs" id="rail-tabs"></div>
+          <div class="rail-sys" id="rail-sys"></div>
+        </div>
+      </div>
+    </nav>
+
     <!-- E · rodapé: saídas e o computador -->
     <nav class="dock" aria-label="Computador">
       <button class="dock-key" id="dock-outputs" aria-pressed="false" aria-label="Saídas de áudio"><svg><use href="/icons/sprite.svg#i-speaker"/></svg></button>
@@ -112,6 +127,16 @@
   <div class="pop" id="route-pop" hidden>
     <span class="silk" id="route-title">Saída</span>
     <div class="pop-list" id="route-list"></div>
+  </div>
+
+  <!-- canal: segurar no nome (renomear, fixar; arrastar muda a ordem) -->
+  <div class="pop pop-chan" id="chan-pop" hidden>
+    <label class="field"><span class="silk">Nome do canal</span>
+      <input id="chan-name" maxlength="40" autocomplete="off" enterkeyhint="done">
+    </label>
+    <button type="button" class="opt opt-toggle" id="chan-pin" aria-pressed="false"><i class="led"></i><span>Fixar: fica no mixer mesmo sem som</span></button>
+    <button type="button" class="key key-small" id="chan-reset">Voltar ao nome original</button>
+    <span class="hint">Segure no nome e arraste pro lado pra mudar a ordem.</span>
   </div>
 
   <!-- escolher ícone de um canal -->
@@ -182,6 +207,9 @@
         <button class="strip-icon" aria-label="Trocar ícone"></button>
         <span class="strip-name"></span>
         <button class="chip"></button>
+        <div class="pan" role="slider" tabindex="0" aria-label="Balanço esquerda/direita" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" hidden>
+          <span class="pan-l">L</span><span class="pan-track"><i></i></span><span class="pan-r">R</span>
+        </div>
       </div>
       <div class="fader">
         <div class="track" role="slider" aria-valuemin="0" aria-valuemax="100" tabindex="0">
@@ -192,7 +220,7 @@
         <div class="meter" aria-hidden="true"><div class="meter-lit"></div><div class="meter-hold"></div></div>
       </div>
       <output class="readout">0</output>
-      <button class="key mute" aria-pressed="false"><i class="led"></i>Mute</button>
+      <button class="key mute" aria-pressed="false" aria-label="Mudo"><svg><use href="/icons/sprite.svg#i-volume-2"/></svg></button>
     </div>
   </template>
 

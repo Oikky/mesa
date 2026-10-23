@@ -1,18 +1,21 @@
 // Ponte entre a extensão e o tabvol-page.js (que roda no mundo da página e não fala com a
 // extensão): pergunta o volume desta aba ao abrir e repassa quando o tablet muda.
 const pass = (g) => document.dispatchEvent(new CustomEvent("__mesa_gain", { detail: g }));
+const pan = (b) => document.dispatchEvent(new CustomEvent("__mesa_bal", { detail: b }));
 
 // saída escolhida: "nome da saída\nask" (ask = pode pedir a permissão de microfone agora)
 const sink = (name, ask) => document.dispatchEvent(new CustomEvent("__mesa_sink", { detail: `${name || ""}\n${ask ? "ask" : ""}` }));
 
 chrome.runtime.sendMessage({ kind: "tabvol-hello" }).then((r) => {
   if (r && typeof r.gain === "number") pass(r.gain);
+  if (r?.bal) pan(r.bal);
   // página recarregou com uma saída escolhida: aplica de novo (sem pedir permissão sozinha)
   if (r?.sink) sink(r.sink, false);
 }).catch(() => { /* extensão recarregada */ });
 
 chrome.runtime.onMessage.addListener((cmd) => {
   if (cmd?.cmd === "tabgain" && typeof cmd.gain === "number") pass(cmd.gain);
+  if (cmd?.cmd === "tabbal" && typeof cmd.b === "number") pan(cmd.b);
   // só o frame principal pode pedir a permissão; os de dentro só aplicam
   if (cmd?.cmd === "tabsink") sink(cmd.name, window === top);
 });

@@ -43,6 +43,7 @@ from media import Media  # noqa: E402
 import pads  # noqa: E402
 import psutil  # noqa: E402
 from discord_rpc import Discord  # noqa: E402
+from eq import Equalizer  # noqa: E402
 from spotify import Spotify, SpotifyError  # noqa: E402
 from tabs import Tabs  # noqa: E402
 import updates  # noqa: E402
@@ -71,6 +72,7 @@ def from_thread(kind):
 
 
 mixer = Mixer(on_state=from_thread("mix"), on_meters=from_thread("lvl"))
+equalizer = Equalizer()
 media = Media(on_change=lambda s: loop and asyncio.ensure_future(broadcast({"t": "media", "d": s})))
 video = Video()
 tabs = Tabs()
@@ -278,11 +280,16 @@ async def ws_endpoint(ws: WebSocket):
         await ws.send_text(json.dumps({"t": "cfg", "d": icons.config()}))
         await ws.send_text(json.dumps({"t": "upd", "d": upd}))
         await ws.send_text(json.dumps({"t": "spnow", "d": spnow}))
+        await ws.send_text(json.dumps({"t": "eq", "d": equalizer.state()}))
         while True:
             msg = json.loads(await ws.receive_text())
             t = msg.get("t")
             if t == "vol":
                 mixer.set_volume(msg["id"], msg["v"])
+            elif t == "bal":
+                mixer.set_balance(msg["id"], msg["b"])
+            elif t == "eq":
+                await broadcast({"t": "eq", "d": equalizer.set(msg.get("bands"), msg.get("on"))})
             elif t == "mute":
                 mixer.set_mute(msg["id"], msg["m"])
             elif t == "media":
@@ -305,10 +312,13 @@ async def ws_endpoint(ws: WebSocket):
                 tb = tabs.get(str(msg.get("id") or ""))
                 if tb:
                     await send_ext({"cmd": "tabsink", "tab": tb["tab"], "name": str(msg.get("device") or "")[:200]})
-            elif t in ("tabvol", "tabmute"):
+            elif t in ("tabvol", "tabmute", "tabbal"):
                 tb = tabs.get(str(msg.get("id") or ""))
                 if tb:
-                    if t == "tabvol":
+                    if t == "tabbal":
+                        tb["bal"] = min(1.0, max(-1.0, float(msg.get("b") or 0)))
+                        await send_ext({"cmd": "tabbal", "tab": tb["tab"], "b": tb["bal"]})
+                    elif t == "tabvol":
                         tb["vol"] = min(1.0, max(0.0, float(msg.get("v") or 0)))
                         await send_ext({"cmd": "tabvol", "tab": tb["tab"], "v": tb["vol"]})
                     else:
@@ -354,6 +364,18 @@ async def ws_endpoint(ws: WebSocket):
             elif t == "chhide":
                 if msg.get("id"):
                     icons.set_field(str(msg["id"])[:300], "hidden", bool(msg.get("hidden")))
+            elif t == "chpin":
+                # fixo: o canal fica no mixer mesmo sem som (guarda nome/ícone pra quando o app fechar)
+                if msg.get("id"):
+                    key = str(msg["id"])[:300]
+                    on = bool(msg.get("pin"))
+                    icons.set_field(key, "pin", on)
+                    icons.set_field(key, "label", str(msg.get("label") or "")[:40] if on else None)
+                    icons.set_field(key, "img", str(msg.get("img") or "")[:30000] if on else None)
+            elif t == "chorder":
+                # ordem dos canais que eu arrumei arrastando (lista de chaves)
+                keys = [str(k)[:300] for k in (msg.get("keys") or [])[:80] if k]
+                icons.set_field("_order", "keys", keys or None)
             elif t == "icon":
                 icon = str(msg.get("icon") or "")[:300]
                 if msg.get("id") and icon:

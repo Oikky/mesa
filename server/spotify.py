@@ -158,10 +158,13 @@ class Spotify:
         meta = self._api("GET", f"/playlists/{pid}?fields=name,tracks.total")
         if not meta:
             return None  # playlists feitas pelo Spotify (Daily Mix etc.) não abrem pra apps novos
-        items = self._api("GET", f"/playlists/{pid}/tracks?limit=100&fields=items(track(uri,name,duration_ms,artists(name),album(images)))") or {}
+        # /tracks foi desligado pelo Spotify (responde 403 "Forbidden"); agora é /items, com a música em "item"
+        f = "uri,name,duration_ms,artists(name),album(images)"
+        items = self._api("GET", f"/playlists/{pid}/items?limit=100&fields=total,items(item({f}),track({f}))") or {}
         data = {"name": meta.get("name") or "Playlist",
-                "total": (meta.get("tracks") or {}).get("total") or 0,
-                "items": [self._track(i.get("track")) for i in items.get("items") or [] if i.get("track")]}
+                "total": items.get("total") or (meta.get("tracks") or {}).get("total") or 0,
+                "items": [self._track(i.get("item") or i.get("track")) for i in items.get("items") or []
+                          if i.get("item") or i.get("track")]}
         self._playlist_cache[pid] = (time.time(), data)
         return data
 

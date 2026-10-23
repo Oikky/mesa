@@ -12,6 +12,7 @@ import comtypes
 import psutil
 from comtypes import CLSCTX_ALL
 from pycaw.constants import DEVICE_STATE, EDataFlow
+from pycaw.api.audioclient import IChannelAudioVolume
 from pycaw.pycaw import (AudioUtilities, IAudioMeterInformation, IAudioSessionControl2,
                          IAudioSessionManager2, ISimpleAudioVolume)
 
@@ -65,7 +66,7 @@ class Channel:
     def __init__(self, key, name):
         self.key = key
         self.name = name
-        self.sessions = []  # [(pid, ISimpleAudioVolume, IAudioMeterInformation)]
+        self.sessions = []  # [(pid, ISimpleAudioVolume, IAudioMeterInformation, IChannelAudioVolume|None)]
         self.pids = set()
         self.output = None  # saída escolhida só pra esse app (None = padrão do Windows)
         self.exe = None     # caminho do executável (pro ícone)
@@ -95,6 +96,10 @@ class Mixer:
 
     def set_mute(self, key, muted):
         self.cmds.put(("mute", key, bool(muted)))
+
+    def set_balance(self, key, b):
+        """Balanço esquerda/direita: -1 = só esquerda, 0 = centro, 1 = só direita."""
+        self.cmds.put(("bal", key, max(-1.0, min(1.0, float(b)))))
 
     def set_default(self, device_id):
         self.cmds.put(("default", device_id, None))
@@ -193,7 +198,11 @@ class Mixer:
                 ch = channels.setdefault(key, Channel(key, name))
                 vol = ctl2.QueryInterface(ISimpleAudioVolume)
                 meter = ctl2.QueryInterface(IAudioMeterInformation)
-                ch.sessions.append((pid, vol, meter))
+                try:
+                    chan = ctl2.QueryInterface(IChannelAudioVolume)
+                except comtypes.COMError:
+                    chan = None
+                ch.sessions.append((pid, vol, meter, chan))
                 ch.pids.add(pid)
         for k, ch in channels.items():
             if k != "system":
@@ -239,6 +248,21 @@ class Mixer:
                     time.sleep(0.15)
                     self._scan()
                 continue
+            if op == "bal":
+                left, right = (1.0, 1.0 + val) if val < 0 else (1.0 - val, 1.0)
+                dev = self._device(key)
+                try:
+                    if dev and dev.vol.GetChannelCount() >= 2:
+                        dev.vol.SetChannelVolumeLevelScalar(0, left, None)
+                        dev.vol.SetChannelVolumeLevelScalar(1, right, None)
+                    elif not dev and key in self.channels:
+                        for _, _, _, c in self.channels[key].sessions:
+                            if c and c.GetChannelCount() >= 2:
+                                c.SetChannelVolume(0, left, None)
+                                c.SetChannelVolume(1, right, None)
+                except comtypes.COMError:
+                    pass
+                continue
             dev = self._device(key)
             if dev:
                 if op == "vol":
@@ -249,7 +273,7 @@ class Mixer:
             ch = self.channels.get(key)
             if not ch:
                 continue
-            for _, v, _ in ch.sessions:
+            for _, v, _, _ in ch.sessions:
                 if op == "vol":
                     v.SetMasterVolume(val, None)
                 else:
@@ -271,20 +295,33 @@ class Mixer:
             "vol": round(dev.vol.GetMasterVolumeLevelScalar(), 3),
             "mute": bool(dev.vol.GetMute()),
             "db": round(dev.vol.GetMasterVolumeLevel(), 1),
+            "bal": self._bal(dev.vol, endpoint=True),
             "default": dev.id == self.default_id,
         }
+
+    @staticmethod
+    def _bal(c, endpoint=False):
+        """Balanço atual a partir do volume dos canais esquerdo/direito (0 se não der pra saber)."""
+        try:
+            if not c or c.GetChannelCount() < 2:
+                return 0
+            get = c.GetChannelVolumeLevelScalar if endpoint else c.GetChannelVolume
+            return round(get(1) - get(0), 2)
+        except comtypes.COMError:
+            return 0
 
     def _publish_state(self):
         chans = []
         for k in self.order:
             ch = self.channels[k]
-            _, v0, _ = ch.sessions[0]
+            _, v0, _, c0 = ch.sessions[0]
             routed = ch.output
             chans.append({
                 "id": k,
                 "name": ch.name,
                 "vol": round(v0.GetMasterVolume(), 3),
                 "mute": bool(v0.GetMute()),
+                "bal": self._bal(c0),
                 "output": routed if routed in self.devices else None,
                 "icon": icons.choice(k, "monitor" if k == "system" else "app"),
             })
@@ -310,7 +347,7 @@ class Mixer:
         for i in self.mic_order:
             peaks["mic:" + i] = self.mics[i].meter.GetPeakValue()
         for k in self.order:
-            peaks[k] = max(m.GetPeakValue() for _, _, m in self.channels[k].sessions)
+            peaks[k] = max(m.GetPeakValue() for _, _, m, _ in self.channels[k].sessions)
         out = {k: round(v, 2) for k, v in peaks.items()}
         if out != self._peaks:
             self._peaks = out

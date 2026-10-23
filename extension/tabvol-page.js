@@ -10,6 +10,7 @@
   window.__mesaTabVol = true;
 
   let gain = 1;
+  let bal = 0; // L/R da aba: -1 (só esquerda) .. 1 (só direita)
   const MP = HTMLMediaElement.prototype;
   const volDesc = Object.getOwnPropertyDescriptor(MP, "volume");
   const siteVol = new WeakMap();   // elemento -> volume que o site pediu
@@ -114,6 +115,7 @@
   // ---------- WebAudio
   const AC = window.AudioContext || window.webkitAudioContext;
   const gains = new WeakMap(); // contexto -> GainNode nosso
+  const pans = new WeakMap();  // contexto -> StereoPannerNode nosso
   const contexts = new Set();  // WeakRef dos contextos
   const connect = AudioNode.prototype.connect;
   const disconnect = AudioNode.prototype.disconnect;
@@ -124,7 +126,16 @@
     if (!g) {
       g = ctx.createGain();
       g.gain.value = gain;
-      connect.call(g, ctx.destination);
+      // L/R entre o nosso ganho e o alto-falante
+      let out = ctx.destination;
+      try {
+        const p = ctx.createStereoPanner();
+        p.pan.value = bal;
+        connect.call(p, ctx.destination);
+        pans.set(ctx, p);
+        out = p;
+      } catch { /* sem L/R */ }
+      connect.call(g, out);
       gains.set(ctx, g);
       // medidor do WebAudio: escuta depois do nosso ganho (não precisa ligar no alto-falante)
       try {
@@ -205,6 +216,45 @@
     const [name, ask] = String(e.detail || "").split("\n");
     setSink(name, ask === "ask");
   });
+
+  // ---------- L/R
+  // <video>/<audio> só passam por um L/R se forem ligados num AudioContext: isso só acontece
+  // quando eu mexo no L/R (depois não tem volta até recarregar; som de outro site sem CORS
+  // ficaria mudo, então só liga em mídia do próprio site ou de blob, como o YouTube).
+  let panCtx = null;
+  const sameOrigin = (el) => {
+    const src = el.currentSrc || el.src || "";
+    if (!src || src.startsWith("blob:") || src.startsWith("data:")) return true;
+    try { return new URL(src, location.href).origin === location.origin || el.crossOrigin != null; } catch { return false; }
+  };
+  function panMedia(el) {
+    if (viaGraph.has(el) || !sameOrigin(el)) return;
+    try {
+      panCtx ||= new AC();
+      if (panCtx.state === "suspended") panCtx.resume().catch(() => {});
+      const src = AC.prototype.createMediaElementSource.call(panCtx, el); // marca viaGraph e reaplica o volume
+      src.connect(panCtx.destination); // passa pelo nosso ganho e L/R (connect trocado acima)
+    } catch { /* já ligado em outro contexto */ }
+  }
+  function setBal(b) {
+    bal = Math.min(1, Math.max(-1, b));
+    if (bal !== 0) {
+      for (const ref of known) { const el = ref.deref(); if (el) panMedia(el); }
+      document.querySelectorAll("video, audio").forEach(panMedia);
+    }
+    for (const ref of contexts) {
+      const ctx = ref.deref();
+      const p = ctx && pans.get(ctx);
+      if (!p) continue;
+      try { p.pan.setTargetAtTime(bal, ctx.currentTime, 0.015); } catch { p.pan.value = bal; }
+    }
+  }
+  document.addEventListener("__mesa_bal", (e) => {
+    const b = Number(e.detail);
+    if (Number.isFinite(b)) setBal(b);
+  });
+  // mídia nova tocando com L/R já fora do centro (próximo vídeo, outro player)
+  document.addEventListener("playing", (e) => { if (bal && e.target instanceof HTMLMediaElement) panMedia(e.target); }, true);
 
   // ---------- ganho novo
   function setGain(g) {

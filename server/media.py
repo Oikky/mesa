@@ -14,6 +14,7 @@ from winrt.windows.media.control import (
 from winrt.windows.storage.streams import Buffer, InputStreamOptions
 
 TICKS = 10_000_000  # TimeSpan do WinRT vem em unidades de 100 ns
+SETTLE = 5.0        # s que o Windows tem que ficar noutro app pra o "tocando agora" trocar sozinho
 
 SOURCE_NAMES = {
     "spotify": "Spotify",
@@ -49,6 +50,10 @@ class Media:
         self._art_id = None
         self._sent_at = 0.0
         self.manager = None
+        self.shown = None      # app que o tablet mostra (id do controle de mídia do Windows)
+        self.pinned = None     # app que eu escolhi arrastando no tablet (vale até ele fechar)
+        self._cand = None      # app que o Windows diz que é o atual, e desde quando
+        self._cand_at = 0.0
 
     async def run(self):
         self.manager = await Manager.request_async()
@@ -66,8 +71,41 @@ class Media:
             st["position"] = round(st["position"] + time.monotonic() - self._sent_at, 1)
         return st
 
+    def _sessions(self):
+        if not self.manager:
+            return {}
+        out = {}
+        for s in self.manager.get_sessions():
+            out.setdefault(s.source_app_user_model_id, s)
+        return out
+
     def _session(self):
-        return self.manager.get_current_session() if self.manager else None
+        """Qual app mostrar. O Windows pula de app por uns segundos na troca de música (ex.: vai
+        pro Spotify enquanto o YouTube carrega a próxima): só segue ele depois de SETTLE s."""
+        if not self.manager:
+            return None
+        all_ = self._sessions()
+        if self.pinned and self.pinned not in all_:
+            self.pinned = None
+        if self.pinned:
+            self.shown = self.pinned
+            return all_[self.pinned]
+        cur = self.manager.get_current_session()
+        cid = cur.source_app_user_model_id if cur else None
+        now = time.monotonic()
+        if cid != self._cand:
+            self._cand, self._cand_at = cid, now
+        if self.shown not in all_ or (cid and cid != self.shown and now - self._cand_at >= SETTLE):
+            self.shown = cid if cid in all_ else next(iter(all_), None)
+        return all_.get(self.shown)
+
+    def pick(self, step):
+        """Arrastar pro lado no tablet: passa pro próximo app do controle de mídia e fica nele."""
+        ids = list(self._sessions())
+        if not ids:
+            return
+        i = ids.index(self.shown) if self.shown in ids else -1
+        self.pinned = self.shown = ids[(i + (1 if step >= 0 else -1)) % len(ids)]
 
     async def _poll(self):
         s = self._session()
@@ -98,6 +136,9 @@ class Media:
                 "position": round(min(pos, dur) if dur > 0 else pos, 1),
                 "duration": round(dur, 1) if dur > 0 else 0,
                 "art": f"/art/{self._art_id}" if self._art_id else None,
+                "sources": [source_name(k) for k in self._sessions()],
+                "src": list(self._sessions()).index(s.source_app_user_model_id) if s.source_app_user_model_id in self._sessions() else 0,
+                "pinned": bool(self.pinned),
                 "can": {
                     "prev": ctrl.is_previous_enabled,
                     "next": ctrl.is_next_enabled,
@@ -147,6 +188,8 @@ class Media:
             await s.try_skip_next_async()
         elif action == "prev":
             await s.try_skip_previous_async()
+        elif action == "pick":
+            self.pick(int(value or 1))
         elif action == "seek" and value is not None:
             await s.try_change_playback_position_async(int(float(value) * TICKS))
         await asyncio.sleep(0.15)

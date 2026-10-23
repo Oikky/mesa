@@ -29,7 +29,8 @@ call do Discord, volume/saída de jogos).
   (pycaw, thread COM própria), `media.py` (winrt, controle de mídia do Windows), `routing.py`
   (saída por app, interface não documentada do EarTrumpet), `pads.py`, `icons.py` (ícone do .exe e
   `config/channels.json`: ícone/nome/escondido por canal), `video.py` (estado/fila do YouTube vindo da extensão), `tabs.py` (abas com som e volume por aba), `spotify.py`
-  (Web API, PKCE), `discord_rpc.py` (RPC local pelo pipe), `secrets_store.py`, `certs.py`.
+  (Web API, PKCE), `discord_rpc.py` (RPC local pelo pipe), `eq.py` (EQ de 10 bandas da saída pelo Equalizer APO:
+  escreve `mesa.txt` na pasta config dele; ajuste salvo em `config/eq.json`), `secrets_store.py`, `certs.py`.
 - `web/`: HTML/CSS/JS puro, sem build (`index.html`, `styles.css`, `app.js`, `sw.js`).
 - `extension/`: extensão MV3 do Edge/Chrome (lê vídeo/tempo/fila do YouTube, recebe comandos;
   `tabvol-page.js` roda no mundo da página e aplica o volume da aba em `<video>/<audio>` e WebAudio,
@@ -38,15 +39,24 @@ call do Discord, volume/saída de jogos).
   nunca mostrar/compartilhar)**.
 
 ## Layouts
-Tocar em MESACONTROL troca o layout (salvo no tablet em `mesa.layout3`). O atual/escolhido é o
-**E · Painel** (desenho do usuário): faders à esquerda, tela 16:9 + transporte + pads 3×3 no meio,
-painel à direita dividido em até 3 partes (o que toca, call do Discord, o que eu abri), rodapé com saídas e Bloquear/Reiniciar/Desligar (segurar). O, A, B, C, D
-são tentativas antigas (ver PRA-FAZER: limpar).
+Dois layouts, salvos no tablet em `mesa.layout3`; **três dedos pra cima** alternam (com animação de
+View Transition). Tocar em MESACONTROL não faz nada.
+- **A · Painel** (no código ainda `data-layout="e"`): faders à esquerda; no meio o "tocando agora"
+  no estilo do mini player do Spotify (capa numa faixa da cor dela; tocar mostra controles e tempo
+  por cima) + pads 3×3 quadrados. Deitado: **barra lateral** à direita com os ícones das partes
+  (o que toca, call, o que eu abri) e as teclas do rodapé (Saídas/Mic/Faders = abas que abrem
+  sozinhas na gaveta; Bloquear/Reiniciar/Desligar segurando). Tocar ou arrastar pra esquerda abre a
+  gaveta por cima do centro (`data-drawer`, `data-view` no `#device`). Em pé: painel embaixo e rodapé.
+- **B · Barra lateral** (`data-layout="e"` + `data-deck="b"`): teclas do rodapé numa barra à
+  esquerda, barra do player do Spotify em cima (vídeo 16:9 pequeno no lugar da capa), faders e
+  pads quadrados embaixo, barra das partes à direita.
+O, A antigo, C, D são tentativas velhas (só por `?layout=`; ver PRA-FAZER: limpar).
 
 ## Design (aprovado)
 Controlador de hardware preto fosco (Boss / Novation Launch Control / Elektron). LEDs só brancos,
-100% monocromático (exceção: fundos coloridos opcionais dos pads), capas de fader claras, teclas de borracha, LCD com grade de pixels (capa e vídeo
-em P&B; toque na tela alterna colorido). Fontes self-hosted: Inter, IBM Plex Mono, Silkscreen.
+monocromático, com duas exceções: fundos coloridos opcionais dos pads e o "tocando agora", que pega a
+cor da capa/miniatura (fundo e brilho em volta, como o YouTube) e pode virar P&B (tecla nos controles
+no A, toque na barra no B; salvo em `mesa.mono`). Capas de fader claras, teclas de borracha. Fontes self-hosted: Inter, IBM Plex Mono, Silkscreen.
 Ícones Lucide em `web/icons/sprite.svg` (adicionar símbolos novos lá). Antes de UI, seguir as skills
 do CLAUDE.md global (impeccable etc.).
 

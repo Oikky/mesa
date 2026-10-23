@@ -25,6 +25,7 @@ function link() {
     if (cmd.tab == null) return;
     if (cmd.cmd === "tabvol") setTabVol(cmd.tab, cmd.v);
     else if (cmd.cmd === "tabsink") setTabSink(cmd.tab, cmd.name);
+    else if (cmd.cmd === "tabbal") setTabBal(cmd.tab, cmd.b);
     else if (cmd.cmd === "tabmute") chrome.tabs.update(cmd.tab, { muted: !!cmd.m }).catch(() => {});
     else chrome.tabs.sendMessage(cmd.tab, cmd).catch(() => {});
   };
@@ -38,10 +39,10 @@ setInterval(() => {
 // ------------------------------------------------------------ volume por aba
 // Estado guardado na sessão do navegador: o service worker pode ser desligado a qualquer hora.
 const LINGER = 20000; // aba que parou de tocar continua na lista por 20 s (pausa rápida não some)
-let st = null;        // { vols, heard, ctrl, sinks: {aba: nome da saída}, sinkSt: {aba: ok|perm|denied|notfound} }
+let st = null;        // { vols, bals, heard, ctrl, sinks: {aba: nome da saída}, sinkSt: {aba: ok|perm|denied|notfound} }
 const ready = chrome.storage.session.get("tabvol").then((r) => {
   st = r.tabvol || {};
-  for (const k of ["vols", "heard", "ctrl", "sinks", "sinkSt"]) st[k] ||= {};
+  for (const k of ["vols", "bals", "heard", "ctrl", "sinks", "sinkSt"]) st[k] ||= {};
 });
 const save = () => chrome.storage.session.set({ tabvol: st });
 
@@ -58,6 +59,15 @@ async function setTabVol(tab, v) {
   if (v >= 0.995) delete st.vols[tab]; else st.vols[tab] = v;
   save();
   chrome.tabs.sendMessage(tab, { cmd: "tabgain", gain: v }).catch(() => {});
+  report();
+}
+
+async function setTabBal(tab, b) {
+  await ready;
+  b = Math.min(1, Math.max(-1, Number(b) || 0));
+  if (Math.abs(b) < 0.01) delete st.bals[tab]; else st.bals[tab] = b;
+  save();
+  chrome.tabs.sendMessage(tab, { cmd: "tabbal", b }).catch(() => {});
   report();
 }
 
@@ -104,13 +114,13 @@ async function sendReport() {
     if (icon.length > 30000 || !/^(https?:|data:image\/)/.test(icon)) icon = "";
     list.push({
       tab: t.id, title: (t.title || "").slice(0, 200), host: host(t.url || t.pendingUrl || ""),
-      icon, v, mute: muted, audible: !!t.audible, ctrl: !!st.ctrl[t.id], active: !!t.active,
+      icon, v, bal: st.bals[t.id] || 0, mute: muted, audible: !!t.audible, ctrl: !!st.ctrl[t.id], active: !!t.active,
       sink: st.sinks[t.id] || null, sinkSt: st.sinkSt[t.id] || null,
     });
   }
   // limpa o que ficou de abas que já fecharam
   const open = new Set(all.map((t) => String(t.id)));
-  for (const k of ["vols", "heard", "ctrl", "sinks", "sinkSt"]) for (const id of Object.keys(st[k])) if (!open.has(id)) delete st[k][id];
+  for (const k of ["vols", "bals", "heard", "ctrl", "sinks", "sinkSt"]) for (const id of Object.keys(st[k])) if (!open.has(id)) delete st[k][id];
   save();
   post("/tabs", { browser, tabs: list });
   if (lingering) reportTimer = setTimeout(sendReport, 5000);
@@ -144,7 +154,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (msg?.kind === "tabvol-hello") {
     ready.then(() => {
-      reply({ gain: st.vols[tab] ?? 1, sink: st.sinks[tab] || null });
+      reply({ gain: st.vols[tab] ?? 1, bal: st.bals[tab] || 0, sink: st.sinks[tab] || null });
       if (sender.frameId === 0 && !st.ctrl[tab]) { st.ctrl[tab] = true; save(); report(); }
     });
     return true; // resposta assíncrona

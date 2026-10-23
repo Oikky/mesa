@@ -373,6 +373,39 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 .strip.is-dc.is-speaking .strip-icon img { box-shadow: 0 0 0 2px var(--body), 0 0 0 3.5px var(--led), 0 0 10px var(--led-glow); }
 .strip.is-dc.is-speaking .strip-name { color: #fff; }
 
+/* balanço do canal: régua curta com o ponto; no centro o ponto vira um tracinho */
+.pan { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 5px; width: 100%; max-width: 92px;
+  height: 22px; margin: 2px auto 0; touch-action: none; cursor: ew-resize; font: 600 8.5px/1 var(--sans); color: var(--ink-3); }
+.pan-track { position: relative; height: 18px; }
+.pan-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; border-radius: 1px; background: #000; box-shadow: 0 1px 0 var(--line); }
+.pan-track::after { content: ""; position: absolute; left: 50%; top: 3px; bottom: 3px; width: 1px; background: var(--ink-3); }
+.pan-track i {
+  position: absolute; top: 50%; left: calc(50% + var(--b, 0) * 50%); width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; background: linear-gradient(180deg, var(--cap-hi), var(--cap-lo)); box-shadow: 0 1px 3px rgba(0,0,0,.6);
+  transition: left .12s var(--ease-out);
+}
+.pan.is-center .pan-track i { width: 4px; border-radius: 2px; margin-left: -2px; }
+.pan:not(.is-center) :is(.pan-l, .pan-r) { color: var(--ink-2); }
+
+/* canal com som: acende devagar na cor do app (brilho embaixo, medidor e ícone coloridos) e,
+   quando o som para, volta ao cinza num desvanecer mais lento */
+.strip { --sc: 255 255 255; position: relative; isolation: isolate; }
+.strip::before {
+  content: ""; position: absolute; inset: 0 2px; z-index: -1; pointer-events: none; border-radius: 12px;
+  background:
+    radial-gradient(120% 55% at 50% 100%, rgb(var(--sc) / .24), transparent 72%),
+    linear-gradient(rgb(var(--sc) / .07), transparent 45%);
+  opacity: 0; transition: opacity 1.8s cubic-bezier(.4, 0, .2, 1);
+}
+.strip.is-live::before { opacity: 1; transition: opacity .9s cubic-bezier(.4, 0, .6, 1); }
+.strip .meter-lit { transition: filter 1.6s; }
+.strip.is-live .meter-lit { --c: rgb(var(--sc)); filter: drop-shadow(0 0 4px rgb(var(--sc) / .55)); transition: filter .9s; }
+.strip .strip-icon img { transition: filter 1.6s, opacity 1.6s; }
+.strip.is-live .strip-icon img { filter: none; opacity: 1; transition: filter .9s, opacity .9s; }
+.strip .strip-name { transition: color 1.6s; }
+.strip.is-live .strip-name { color: color-mix(in srgb, rgb(var(--sc)) 45%, #fff); transition: color .9s; }
+@media (prefers-reduced-motion: reduce) { .strip::before, .strip .meter-lit, .strip .strip-icon img, .strip .strip-name { transition-duration: .3s !important; } }
+
 /* bancos: som e microfones dividem a coluna; um sobe enquanto o outro entra por baixo */
 .device[data-layout="e"] .page-mixer { overflow: hidden; touch-action: pan-x; }
 .strips-mic { display: none; }
@@ -587,32 +620,6 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   .device[data-layout="a"] .transport .key { min-height: 0; }
 }
 
-/* B · trilho de modos à esquerda (como as teclas laterais da Launch Control), tela em cima */
-.device[data-layout="b"] {
-  grid-template-columns: 88px 1fr 230px 150px;
-  grid-template-rows: minmax(150px, auto) 1fr;
-  grid-template-areas: "brand lcd transport knob" "modes stage stage stage";
-}
-.device[data-layout="b"] .brand { flex-direction: column; align-items: flex-start; justify-content: space-between; height: auto; padding: 4px 0; }
-.device[data-layout="b"] .wordmark { display: grid; gap: 4px; font-size: 15px; }
-.device[data-layout="b"] .transport { align-self: center; }
-.device[data-layout="b"] .transport .key { min-height: 72px; }
-.device[data-layout="b"] .modes { grid-auto-rows: 1fr; gap: 10px; }
-.device[data-layout="b"] .mode {
-  flex-direction: column; justify-content: center; gap: 12px; padding: 0 6px;
-  font-size: 10px; letter-spacing: .12em;
-}
-.device[data-layout="b"] .mode-icon { display: block; width: 24px; height: 24px; }
-@media (orientation: portrait) {
-  .device[data-layout="b"] {
-    grid-template-columns: 88px 1fr 140px;
-    grid-template-rows: minmax(140px, auto) 92px 1fr;
-    grid-template-areas: "brand lcd lcd" "modes transport knob" "modes stage stage";
-  }
-  .device[data-layout="b"] .transport { align-self: stretch; }
-  .device[data-layout="b"] .transport .key { min-height: 0; }
-}
-
 /* C · seção master à direita (tela, transporte e knob juntos, como o master de uma mesa); modos em abas */
 .device[data-layout="c"] {
   grid-template-columns: 1fr clamp(240px, 27vw, 300px);
@@ -672,34 +679,34 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 .device[data-layout="d"] .page-pads { grid-area: screen; }
 .device[data-layout="d"] .page { position: relative; inset: auto; min-height: 0; }
 /* a tela é sempre 16:9; saídas e pads ocupam a mesma moldura */
-.device:is([data-layout="d"], [data-layout="e"]) .lcd { aspect-ratio: 16 / 9; align-self: start; transition: opacity .25s var(--ease-out), visibility 0s; }
+.device[data-layout="d"] .lcd { aspect-ratio: 16 / 9; align-self: start; transition: opacity .25s var(--ease-out), visibility 0s; }
 .device[data-layout="d"]:not([data-page="mixer"]) .lcd { opacity: 0; visibility: hidden; transition: none; }
 /* a troca de tela é só o "liga" do monitor (screenOn no app.js), sem fade por cima */
 .device[data-layout="d"] .page { transition: none; transform: none; }
 /* tela grande: capa quadrada à esquerda, título grande; com vídeo, vídeo na largura toda */
-.device:is([data-layout="d"], [data-layout="e"]) .lcd { grid-template-columns: minmax(0, 40%) 1fr; gap: 12px 16px; padding: 14px; }
+.device[data-layout="d"] .lcd { grid-template-columns: minmax(0, 40%) 1fr; gap: 12px 16px; padding: 14px; }
 .device[data-layout="d"] .lcd-art { width: 100%; }
 .device[data-layout="d"] .lcd-title { font-size: 16px; -webkit-line-clamp: 3; }
 .device[data-layout="d"] .lcd-artist { font-size: 12.5px; }
 .device[data-layout="d"] .lcd-src { font-size: 9px; }
 /* com vídeo, ele É a tela (16:9 de borda a borda); título e tempo ficam por cima, embaixo */
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video {
+.device[data-layout="d"] .lcd.has-video {
   grid-template-columns: 1fr; grid-template-rows: 1fr auto auto; gap: 6px 0; padding: 0 16px 12px;
 }
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video .lcd-art {
+.device[data-layout="d"] .lcd.has-video .lcd-art {
   position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 6px;
 }
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video::before {
+.device[data-layout="d"] .lcd.has-video::before {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 45%; z-index: 1; pointer-events: none;
   border-radius: 0 0 6px 6px;
   background: linear-gradient(rgba(8, 9, 10, 0), rgba(8, 9, 10, .72) 55%, rgba(8, 9, 10, .9));
 }
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video .lcd-text { grid-row: 2; position: relative; z-index: 2; }
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video .lcd-time { grid-row: 3; position: relative; z-index: 2; }
+.device[data-layout="d"] .lcd.has-video .lcd-text { grid-row: 2; position: relative; z-index: 2; }
+.device[data-layout="d"] .lcd.has-video .lcd-time { grid-row: 3; position: relative; z-index: 2; }
 /* no vídeo, a origem fica em cima do título (não vira etiqueta solta) */
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video .lcd-src { position: static; padding: 0; background: none; color: var(--lcd-ink); opacity: .75; }
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video .lcd-title { font-size: 15px; text-shadow: 0 1px 2px #000; }
-.device:is([data-layout="d"], [data-layout="e"]) .lcd.has-video .lcd-bar::before { color: #3a3c3d; }
+.device[data-layout="d"] .lcd.has-video .lcd-src { position: static; padding: 0; background: none; color: var(--lcd-ink); opacity: .75; }
+.device[data-layout="d"] .lcd.has-video .lcd-title { font-size: 15px; text-shadow: 0 1px 2px #000; }
+.device[data-layout="d"] .lcd.has-video .lcd-bar::before { color: #3a3c3d; }
 
 /* usar a tela toda: sem largura máxima, canais esticam pra ocupar as asas */
 .device[data-layout="d"] { max-width: none; }
@@ -867,15 +874,63 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 .device[data-layout="e"] .transport .key svg { width: 18px; height: 18px; }
 
 /* pads 3×3 */
-.device[data-layout="e"] .pads { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; }
-.device[data-layout="e"] #pads .pad:nth-child(n + 10) { display: none; }
+.device[data-layout="e"] .pads { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(var(--rows, 3), var(--cell, 1fr)); gap: 8px; align-content: start; }
 .device[data-layout="e"] .pad .pad-label { font-size: 9.5px; letter-spacing: .08em; }
 .device[data-layout="e"] .pad.is-empty { box-shadow: inset 0 0 0 1px var(--line); background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.015) 6px 12px); }
 
-/* faders: apps + main, esticando pra ocupar a coluna */
-.device[data-layout="e"] .page-mixer .strip { max-width: none; }
-.device[data-layout="e"] .page-mixer .fader { width: 100%; max-width: 96px; justify-self: center; }
-.device[data-layout="e"] .page-mixer .mute { max-width: 140px; justify-self: center; }
+/* faders: largura padrão de canal, um do lado do outro a partir da esquerda */
+.device[data-layout="e"] .page-mixer { --sw: 112px; }
+.device[data-layout="e"] .page-mixer .strip { flex: 0 1 var(--sw); width: var(--sw); min-width: 84px; max-width: var(--sw); padding-bottom: 10px; }
+.device[data-layout="e"] .page-mixer .fader { width: 100%; max-width: 84px; justify-self: center; }
+.device[data-layout="e"] .page-mixer .strips-mic .strip { flex-basis: var(--sw); }
+/* chegar: abre o espaço e acende; sair: apaga e desce, depois o espaço fecha e os vizinhos se ajeitam */
+.device[data-layout="e"] .page-mixer .strip { animation: strip-grow .62s cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes strip-grow {
+  0% { flex-basis: 0; width: 0; min-width: 0; max-width: 0; padding-inline: 0; opacity: 0; transform: translateY(14px) scale(.95); filter: blur(4px); }
+  45% { flex-basis: var(--sw); width: var(--sw); max-width: var(--sw); padding-inline: 8px; opacity: 0; transform: translateY(14px) scale(.95); filter: blur(4px); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+.device[data-layout="e"] .page-mixer .strip.is-leaving { animation: strip-shrink .72s cubic-bezier(.4, 0, .2, 1) both; pointer-events: none; }
+@keyframes strip-shrink {
+  0% { flex-basis: var(--sw); width: var(--sw); max-width: var(--sw); opacity: 1; }
+  45% { flex-basis: var(--sw); width: var(--sw); max-width: var(--sw); padding-inline: 8px; opacity: 0; transform: translateY(16px) scale(.94); filter: blur(5px); }
+  100% { flex-basis: 0; width: 0; min-width: 0; max-width: 0; padding-inline: 0; border-left-color: transparent; opacity: 0; transform: translateY(16px) scale(.94); filter: blur(5px); }
+}
+/* segurar no nome: o canal levanta; arrastando, segue o dedo por cima dos outros */
+.strip-name { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.device[data-layout="e"] .page-mixer .strip { transition: transform .22s var(--ease-out), background-color .22s, box-shadow .22s; border-radius: 12px; }
+.device[data-layout="e"] .page-mixer .strip.is-lifted,
+.device[data-layout="e"] .page-mixer .strip.is-open {
+  z-index: 5; background-color: #1e1e20; box-shadow: 0 16px 34px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08);
+}
+.device[data-layout="e"] .page-mixer .strip.is-lifted:not(.is-grabbed) { transform: scale(1.03); }
+.device[data-layout="e"] .page-mixer .strip.is-grabbed { transition: background-color .22s, box-shadow .22s; cursor: grabbing; }
+.device[data-layout="e"] .page-mixer .strip.is-lifted + .strip,
+.device[data-layout="e"] .page-mixer .strip.is-open + .strip { border-left-color: transparent; }
+.strip.is-in:not(.is-leaving), .strip.is-grabbed { animation: none !important; }
+/* fixo sem som: fica no lugar, apagado */
+.strip.is-ghost > :not(.strip-head) { opacity: .32; }
+.strip.is-ghost .strip-head > :not(.strip-name) { opacity: .45; }
+.strip.is-ghost .strip-name { color: var(--ink-3); }
+.strip.is-pinned .strip-name::after, .strip.is-ghost .strip-name::after {
+  content: ""; display: inline-block; width: 4px; height: 4px; margin: 0 0 2px 5px; border-radius: 50%; vertical-align: middle;
+  background: var(--led); box-shadow: 0 0 4px var(--led-glow);
+}
+.strip.is-ghost .strip-name::after { background: var(--ink-3); box-shadow: none; }
+.pop-chan { width: 280px; }
+.pop-chan .hint { font-size: 11.5px; line-height: 1.4; }
+
+/* L/R: quem não tem (call, mic) guarda o lugar pra os faders ficarem na mesma altura */
+.pan.is-off { visibility: hidden; pointer-events: none; }
+/* mudo: tecla de borracha do tamanho do fader; mudo = acende clara como a capa do fader */
+.device[data-layout="e"] :is(.page-mixer, .page-outputs) .mute {
+  justify-self: center; width: 100%; max-width: 84px; min-height: 40px; padding: 0; border-radius: 8px; color: var(--ink-2);
+}
+.device[data-layout="e"] :is(.page-mixer, .page-outputs) .mute svg { width: 19px; height: 19px; }
+.device[data-layout="e"] :is(.page-mixer, .page-outputs) .mute[aria-pressed="true"] {
+  color: #18181a; background: linear-gradient(180deg, var(--cap-hi), var(--cap-lo));
+  box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0,0,0,.14), 0 3px 5px rgba(0,0,0,.55), 0 0 0 1px #050506;
+}
 .device[data-layout="e"] .strips-main { margin-left: 0; }
 
 /* painel da direita */
@@ -1121,15 +1176,393 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   .device[data-layout="e"] .panel:not([data-n="1"]) .panel-self span { display: none; }
 }
 
+/* ======================================================================
+   A e B (A = o antigo E; B = o mesmo aparelho com as teclas numa barra à esquerda).
+   "Tocando agora" no estilo do Spotify: cartão do mini player no A, barra do player no B.
+   Cor ambiente: o fundo e o brilho em volta pegam a cor da capa (ou da miniatura do vídeo);
+   tocar alterna pra preto e branco (salvo no tablet).
+   ====================================================================== */
+@property --rw { syntax: "<length>"; inherits: true; initial-value: 64px; }
+.device[data-layout="e"] { --amb: 38 38 40; --rw: 64px; }
+
+.device[data-layout="e"] .lcd {
+  --a: var(--amb);
+  aspect-ratio: auto; align-self: stretch; padding: 0; gap: 0; overflow: hidden;
+  border-radius: 10px; background: #000;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 16px 48px -16px rgb(var(--a) / .7);
+  transition: box-shadow .9s var(--ease-out);
+}
+.device[data-layout="e"] .lcd:not(.is-color) { --a: 38 38 40; }
+.device[data-layout="e"] .lcd::after { display: none; }
+.device[data-layout="e"] .lcd.has-video::before { display: none; }
+.device[data-layout="e"] .lcd-art {
+  position: relative; inset: auto; width: auto; height: auto; aspect-ratio: auto; border-radius: 0; filter: none;
+  background-color: rgb(var(--a)); transition: background-color .9s var(--ease-out), filter .5s var(--ease-out);
+}
+.device[data-layout="e"] .lcd:not(.is-color) .lcd-art { filter: grayscale(1) contrast(1.1); }
+.device[data-layout="e"] .lcd-src { display: none; }
+.device[data-layout="e"] .lcd-text { gap: 3px; }
+.device[data-layout="e"] .lcd-title {
+  font: 700 16px/1.25 var(--sans); color: #fff; text-shadow: none;
+  -webkit-line-clamp: 1; display: -webkit-box; white-space: normal;
+}
+.device[data-layout="e"] .lcd .lcd-artist { display: block; font: 500 13px/1.3 var(--sans); color: var(--ink-2); }
+.device[data-layout="e"] .lcd-badge { font: 600 10px/1 var(--sans); letter-spacing: .04em; padding: 4px 6px; border-radius: 4px; background: rgba(0,0,0,.7); }
+/* linha do tempo: fina e branca, como a do Spotify */
+.device[data-layout="e"] .lcd-time { font: 500 11px/1 var(--sans); color: rgba(255,255,255,.85); gap: 10px; }
+.device[data-layout="e"] .lcd-bar { height: 18px; }
+.device[data-layout="e"] .lcd-bar::before,
+.device[data-layout="e"] .lcd-bar i { height: 4px; margin-top: -2px; border-radius: 2px; background: rgba(255,255,255,.28); }
+.device[data-layout="e"] .lcd-bar i { background: #fff; }
+
+/* controles: anterior/próxima só o ícone cheio, play num círculo branco */
+.device[data-layout="e"] .transport {
+  margin: 0; padding: 0; border-radius: 0; background: none; box-shadow: none;
+  display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; column-gap: 22px;
+}
+.device[data-layout="e"] .transport .key {
+  min-height: 40px; padding: 0; color: #fff; background: none; box-shadow: none;
+  transition: transform .18s var(--ease-out), opacity .15s;
+}
+.device[data-layout="e"] .transport .key-side { width: 40px; opacity: .85; }
+.device[data-layout="e"] .transport #prev { grid-column: 2; justify-self: center; }
+.device[data-layout="e"] .transport #play { grid-column: 3; }
+.device[data-layout="e"] .transport #next { grid-column: 4; justify-self: center; }
+.device[data-layout="e"] .transport .key-side svg { width: 20px; height: 20px; fill: currentColor; stroke-width: 2; }
+.device[data-layout="e"] .transport .key-main {
+  width: 48px; height: 48px; min-height: 0; border-radius: 50%; background: #fff; color: #000; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.device[data-layout="e"] .transport .key-main svg { width: 18px; height: 18px; fill: currentColor; stroke-width: 1.5; }
+.device[data-layout="e"] .transport .key:active { transform: scale(.9); box-shadow: none; }
+.device[data-layout="e"] .transport .key-side:active { opacity: 1; }
+.device[data-layout="e"] .transport .key:disabled { opacity: .35; }
+.np-mono { display: none; }
+.device[data-layout="e"]:not([data-deck]) .np-mono {
+  display: inline-flex; grid-column: 1; justify-self: start; margin-left: 4px; opacity: .85;
+}
+.device[data-layout="e"] .lcd.is-color .np-mono svg { fill: none; }
+.device[data-layout="e"] .lcd:not(.is-color) .np-mono { opacity: 1; }
+
+/* ---------- A: cartão do mini player. Capa no meio de uma faixa da cor dela; nome embaixo.
+   Tocar mostra os controles e o tempo por cima da capa escurecida; somem sozinhos. */
+.device[data-layout="e"]:not([data-deck]) .lcd,
+.device[data-layout="e"]:not([data-deck]) .lcd.has-video {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; padding: 0; gap: 0;
+}
+.device[data-layout="e"]:not([data-deck]) .lcd-art {
+  grid-row: 1; grid-column: 1; align-self: stretch; padding: 14px;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
+  background-origin: content-box; background-clip: border-box;
+}
+/* vídeo: janela 16:9 no lugar da capa */
+.device[data-layout="e"]:not([data-deck]) .lcd-video {
+  inset: 14px auto 14px 50%; aspect-ratio: 16 / 9; max-width: calc(100% - 28px); transform: translateX(-50%);
+  border-radius: 4px; overflow: hidden;
+}
+/* escurece a capa quando os controles aparecem */
+.device[data-layout="e"]:not([data-deck]) .lcd-art::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(rgba(0,0,0,.3), rgba(0,0,0,.72)); opacity: 0; transition: opacity .3s var(--ease-out);
+}
+.device[data-layout="e"]:not([data-deck]) .lcd-text { grid-row: 2; padding: 10px 14px 12px; justify-content: flex-start; }
+.device[data-layout="e"]:not([data-deck]) .lcd-time,
+.device[data-layout="e"]:not([data-deck]) .transport {
+  grid-row: 1; grid-column: 1; z-index: 2; opacity: 0; pointer-events: none;
+  transition: opacity .28s var(--ease-out), transform .35s var(--ease-out);
+}
+.device[data-layout="e"]:not([data-deck]) .lcd-time { align-self: end; padding: 0 14px 6px; transform: translateY(6px); }
+.device[data-layout="e"]:not([data-deck]) .transport { align-self: center; padding: 0 10px 20px; transform: scale(.96); }
+.device[data-layout="e"].np-open:not([data-deck]) .lcd-art::after,
+.device[data-layout="e"].np-open:not([data-deck]) .lcd-time,
+.device[data-layout="e"].np-open:not([data-deck]) .transport { opacity: 1; pointer-events: auto; transform: none; }
+.device[data-layout="e"].np-open:not([data-deck]) .lcd[data-state="idle"] .lcd-time { visibility: hidden; }
+
+/* passar o mouse em cima mostra os controles (no tablet é tocando) */
+@media (hover: hover) {
+  .device[data-layout="e"]:not([data-deck]) .lcd:hover .lcd-art::after,
+  .device[data-layout="e"]:not([data-deck]) .lcd:hover .lcd-time,
+  .device[data-layout="e"]:not([data-deck]) .lcd:hover .transport,
+  .device[data-layout="e"]:not([data-deck]) .lcd.has-video:hover .lcd-text { opacity: 1; pointer-events: auto; transform: none; }
+}
+/* A com vídeo: só o vídeo, de borda a borda; nome e controles aparecem por cima */
+.device[data-layout="e"]:not([data-deck]) .lcd.has-video .lcd-art { padding: 0; background-size: cover; width: 100%; height: 100%; justify-self: stretch; }
+.device[data-layout="e"]:not([data-deck]) .lcd-time { justify-self: stretch; }
+.device[data-layout="e"]:not([data-deck]) .lcd.has-video .lcd-video { inset: 0; width: 100%; max-width: none; transform: none; border-radius: 0; aspect-ratio: auto; }
+.device[data-layout="e"]:not([data-deck]) .lcd.has-video { grid-template-rows: minmax(0, 1fr); }
+.device[data-layout="e"]:not([data-deck]) .lcd.has-video .lcd-text {
+  grid-row: 1; grid-column: 1; align-self: start; z-index: 2; padding: 12px 14px 24px; pointer-events: none;
+  background: linear-gradient(rgba(0,0,0,.65), transparent); opacity: 0; transition: opacity .28s var(--ease-out);
+}
+.device[data-layout="e"].np-open:not([data-deck]) .lcd.has-video .lcd-text { opacity: 1; }
+
+/* ---------- B: barra do player. Capa (ou vídeo 16:9 pequeno), nome, controles à direita, tempo na borda */
+.device[data-deck="b"] .lcd,
+.device[data-deck="b"] .lcd.has-video {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr);
+  align-items: center; column-gap: 16px; padding: 10px 18px 12px 10px; border-radius: 8px;
+}
+.device[data-deck="b"] .lcd-art {
+  grid-row: 1; grid-column: 1; width: calc(var(--bh) - 22px); height: calc(var(--bh) - 22px); border-radius: 4px;
+  background-size: cover; background-position: center;
+}
+.device[data-deck="b"] .lcd.has-video .lcd-art { width: calc((var(--bh) - 22px) * 16 / 9); }
+/* com o vídeo rodando, a miniatura não aparece atrás dele */
+.device[data-layout="e"] .lcd-art:has(.lcd-video.is-live) { background-image: none !important; }
+.device[data-layout="e"] .lcd-video.is-live { background: #000; }
+.device[data-layout="e"] .lcd-video iframe { transform: translate(var(--tx, 0px), var(--ty, 0px)) scale(var(--vsc, .5)); }
+.device[data-deck="b"] .lcd-text { grid-row: 1; grid-column: 2; }
+.device[data-deck="b"] .transport { grid-row: 1; grid-column: 3; grid-template-columns: repeat(3, auto); column-gap: 14px; }
+.device[data-deck="b"] .transport #prev { grid-column: 1; }
+.device[data-deck="b"] .transport #play { grid-column: 2; width: 40px; height: 40px; }
+.device[data-deck="b"] .transport #next { grid-column: 3; }
+.device[data-deck="b"] .lcd-time { position: absolute; left: 0; right: 0; bottom: 0; display: block; padding: 0; }
+.device[data-deck="b"] .lcd-time #pos, .device[data-deck="b"] .lcd-time #dur { display: none; }
+.device[data-deck="b"] .lcd-bar { height: 14px; }
+.device[data-deck="b"] .lcd-bar::before,
+.device[data-deck="b"] .lcd-bar i { top: auto; bottom: 0; height: 2px; margin: 0; border-radius: 0 1px 1px 0; }
+
+/* ---------- pads quadrados e maiores */
+.device[data-layout="e"] .pads { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(var(--rows, 3), var(--cell, 1fr)); gap: 8px; align-content: start; }
+.device[data-layout="e"] .pad { border-radius: 12px; }
+.device[data-layout="e"] .pad .pad-label { font-size: 10.5px; letter-spacing: .08em; }
+.device[data-layout="e"] .pad svg { width: clamp(26px, 3.6vw, 40px); height: clamp(26px, 3.6vw, 40px); }
+
+/* ---------- bancos dos faders: os mics ficam "em cima"; arrastar pra baixo traz eles descendo */
+.device[data-layout="e"] .strips-mic { transform: translateY(-104%); }
+.device[data-layout="e"] .page-mixer[data-bank="mic"] #apps,
+.device[data-layout="e"] .page-mixer[data-bank="mic"] #main { transform: translateY(104%); }
+.device[data-layout="e"] .bank { width: 22px; gap: 6px; }
+.device[data-layout="e"] .bank-led { width: 22px; height: 28px; border-radius: 6px; color: var(--ink-3); transition: color .25s, background .25s; }
+.device[data-layout="e"] .bank-led::before { display: none; }
+.device[data-layout="e"] .bank-led svg { width: 15px; height: 15px; }
+.device[data-layout="e"] .bank-led[aria-pressed="true"] { color: #fff; background: rgba(255,255,255,.06); filter: drop-shadow(0 0 4px var(--led-glow)); }
+.device[data-layout="e"] #main { margin-right: 26px; }
+.device[data-layout="e"] .strips-mic { inset: 0 26px 0 0; }
+
+/* ---------- barra lateral e gaveta (deitado) */
+.rail, .drawer-scrim { display: none; }
+@media (orientation: landscape) {
+  .device[data-layout="e"] { position: relative; --dw: min(400px, 44vw); }
+  .device[data-deck="b"].no-panel { --rw: 0px; }
+  .device[data-layout="e"] .rail {
+    grid-area: panel; position: relative; z-index: 31; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    min-height: 0; padding: 8px 0; border-radius: 12px; touch-action: none;
+    background: rgba(0, 0, 0, .22); box-shadow: inset 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.03), 0 1px 0 var(--line);
+  }
+  .device[data-deck="b"].no-panel .rail { visibility: hidden; }
+  .rail-parts, .rail-tabs, .rail-sys { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .rail-tabs:not(:empty)::before { content: ""; width: 26px; height: 1px; margin: 2px 0 4px; background: var(--line); }
+  .rail-parts:empty + .rail-tabs::before { display: none; }
+  .rail-gap { flex: 1; }
+  /* a fila fica na barra: capinhas empilhadas que rolam; a que toca tem o anel aceso */
+  .rail-parts { flex: 1 1 auto; min-height: 0; overflow-y: auto; touch-action: pan-y; scrollbar-width: none; padding: 6px 0; align-self: stretch; }
+  .rail-parts:not(:empty) ~ .rail-gap { display: none; }
+  /* fila em grupos: cada app num quadro com a cor dele (como o brilho dos faders), as capas que
+     cabem divididas entre os grupos; nada rola nem corta */
+  .rail-parts:has(.rail-group) { overflow: hidden; }
+  .rail-group {
+    --gc: 255 255 255;
+    flex: none; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 6px; border-radius: 14px;
+    background:
+      radial-gradient(130% 40% at 50% 100%, rgb(var(--gc) / .2), transparent 72%),
+      linear-gradient(rgb(var(--gc) / .14), transparent 42%),
+      rgba(0, 0, 0, .3);
+    box-shadow: inset 0 0 0 1px rgb(var(--gc) / .32), inset 0 1px 0 rgba(255,255,255,.06), 0 2px 8px rgba(0,0,0,.45);
+    transition: box-shadow .4s, background .4s;
+  }
+  .rail-group[data-svc="youtube"] { --gc: 255 64 64; }
+  .rail-group[data-svc="spotify"] { --gc: 30 215 96; }
+  .rail-group[data-svc="discord"] { --gc: 108 120 255; }
+  .device:has(.lcd:not(.is-color)) .rail-group { --gc: 225 225 222; }
+  .rail-group > .rail-part { background: transparent; box-shadow: none; color: color-mix(in srgb, rgb(var(--gc)) 70%, #fff); margin-bottom: 8px; }
+  .rail-group > .rail-part[aria-pressed="true"] { color: #fff; }
+  .rail-group .rail-q { gap: 8px; padding: 0; }
+  .rail-cover.is-av { border-radius: 50%; display: grid; place-items: center; font: 600 15px/1 var(--sans); color: var(--ink); background-color: #2a2b30; }
+  .rail-cover.is-av:not([aria-current="true"]) { opacity: .85; }
+  .rail-cover.is-av[aria-current="true"] { box-shadow: 0 0 0 2px #0d0d0e, 0 0 0 3.5px rgb(var(--gc, 255 255 255)), 0 0 12px rgb(var(--gc, 255 255 255) / .5); }
+  .rail-part, .rail .dock-key { flex: none; }
+  /* no A a barra também leva as teclas: a marca vira só o LED de conexão pra sobrar lugar pra fila */
+  .device[data-layout="e"]:not([data-deck]) .rail .wordmark { display: none; }
+  .device[data-layout="e"]:not([data-deck]) .rail .brand { margin-top: 0; }
+  .rail-parts::-webkit-scrollbar { display: none; }
+  .rail-q { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 2px; }
+  .rail-cover {
+    flex: none; width: 46px; height: 46px; border-radius: 8px;
+    background: #151617 center / cover no-repeat;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 2px 6px rgba(0,0,0,.5);
+    transition: transform .15s var(--ease-out), opacity .2s, filter .3s;
+  }
+  .rail-cover:not([aria-current="true"]) { opacity: .78; }
+  .rail-cover[aria-current="true"] { box-shadow: 0 0 0 2px #0d0d0e, 0 0 0 3.5px var(--led), 0 0 12px var(--led-glow); }
+  .rail-cover:active { transform: scale(.92); }
+  .rail-cover.is-picked { opacity: 1; }
+  .device:has(.lcd:not(.is-color)) .rail-cover { filter: grayscale(1); }
+  .rail-part {
+    display: grid; place-items: center; width: 46px; height: 46px; border-radius: 10px; overflow: hidden;
+    color: var(--ink-2); background: var(--lcd); box-shadow: inset 0 0 0 1px #000, 0 1px 0 var(--line);
+    transition: color .2s, box-shadow .2s;
+  }
+  .rail-part svg { width: 20px; height: 20px; }
+  .rail-part img { width: 26px; height: 26px; border-radius: 6px; }
+  .rail-part[aria-pressed="true"] { color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), 0 0 10px rgba(255,255,255,.12); }
+  .rail-part.is-new { animation: rail-ping 1.1s var(--ease-out) 3; }
+  /* 3 barras: as teclas moram num menu que abre à esquerda da barra, com o nome de cada uma */
+  .rail-menu-wrap { position: relative; flex: none; }
+  .rail-menu-wrap:has(.rail-tabs:empty) { display: none; }
+  .rail-menu {
+    display: grid; place-items: center; width: 46px; height: 46px; border-radius: 10px; color: var(--ink-2);
+    background: linear-gradient(180deg, var(--rubber-hi), var(--rubber-lo));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 3px rgba(0,0,0,.5), 0 0 0 1px #050506;
+  }
+  .rail-menu svg { width: 20px; height: 20px; }
+  .rail-menu[aria-expanded="true"] { color: #111; background: linear-gradient(180deg, var(--cap-hi), var(--cap-lo)); }
+  .rail-pop {
+    position: absolute; right: calc(100% + 12px); bottom: 0; z-index: 40; width: max-content; min-width: 236px;
+    display: grid; gap: 4px; padding: 8px; border-radius: 14px; background: #0d0d0e;
+    box-shadow: inset 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.05), -14px 10px 40px rgba(0,0,0,.65);
+    transform-origin: 100% 100%; animation: pop-in .22s var(--ease-out) both;
+  }
+  @keyframes pop-in { from { opacity: 0; transform: translateX(8px) scale(.96); } }
+  .rail-pop .rail-tabs, .rail-pop .rail-sys { display: grid; gap: 4px; }
+  .rail-pop .rail-sys { padding-top: 6px; margin-top: 2px; border-top: 1px solid var(--line); }
+  .rail-pop .rail-tabs::before { display: none; }
+  .device[data-layout="e"] .rail .rail-pop .dock-key {
+    width: 100%; height: 46px; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 0 12px;
+    font: 500 13px/1.2 var(--sans); color: var(--ink);
+  }
+  .device[data-layout="e"] .rail .rail-pop .dock-key::after { content: attr(aria-label); text-align: left; white-space: nowrap; }
+  .device[data-layout="e"] .rail-pop .dock-key svg { flex: none; }
+  .device[data-layout="e"] .rail-pop .dock-key .led { position: static; order: 3; margin-left: auto; }
+  @keyframes rail-ping {
+    0% { box-shadow: inset 0 0 0 1px #000, 0 0 0 0 var(--led-glow); color: var(--ink-2); }
+    35% { box-shadow: inset 0 0 0 1px #000, 0 0 0 2px var(--led), 0 0 14px var(--led-glow); color: #fff; }
+    100% { box-shadow: inset 0 0 0 1px #000, 0 0 0 7px transparent; color: var(--ink-2); }
+  }
+  .device[data-layout="e"] .rail .dock-key { width: 46px; height: 46px; border-radius: 10px; }
+  .device[data-layout="e"] .rail .dock-key svg { width: 20px; height: 20px; }
+  .device[data-layout="e"] .rail .hold-ring { border-radius: 12px; }
+  /* a marca no pé da barra, em pé */
+  .device[data-layout="e"] .rail .brand {
+    flex-direction: column-reverse; height: auto; gap: 10px; margin-top: 4px; justify-content: flex-start;
+  }
+  .device[data-layout="e"] .rail .wordmark { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .14em; cursor: default; }
+  .device[data-layout="e"]:not([data-deck]) .dock { display: none; }
+
+  /* gaveta: abre à esquerda da barra, por cima do centro */
+  .device[data-layout="e"] .panel,
+  .device[data-layout="e"] .page-outputs {
+    grid-area: panel; position: absolute; top: 0; bottom: 0; right: calc(100% + 12px); z-index: 30;
+    width: var(--dw); min-width: 0; background: #0d0d0e;
+    box-shadow: inset 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.04), -18px 0 40px rgba(0,0,0,.55);
+    opacity: 0; visibility: hidden; transform: translateX(48px); pointer-events: none;
+    transition: opacity .3s var(--ease-out), transform .45s var(--ease-out), visibility 0s .45s;
+  }
+  .device[data-layout="e"]:not(.no-panel) .panel { min-width: 0; }
+  .device[data-layout="e"]:not([data-drawer="open"]) :is(.panel, .page-outputs) {
+    opacity: 0; visibility: hidden; transform: translateX(48px); pointer-events: none;
+    transition: opacity .3s var(--ease-out), transform .45s var(--ease-out), visibility 0s .45s;
+  }
+  .device[data-layout="e"] .panel { touch-action: pan-y; }
+  .device[data-layout="e"][data-drawer="open"]:not([data-view="outputs"]) .panel,
+  .device[data-layout="e"][data-drawer="open"][data-view="outputs"] .page-outputs {
+    opacity: 1; visibility: visible; transform: none; pointer-events: auto;
+    transition: opacity .25s var(--ease-out), transform .45s var(--ease-out), visibility 0s;
+  }
+  .device[data-layout="e"].is-dragging :is(.panel, .page-outputs, .drawer-scrim) { transition: none !important; }
+  /* abas: uma tela só (saídas/mic/faders) sem mexer nas partes */
+  .device[data-layout="e"][data-view="parts"] .pslot.is-tab { display: none; }
+  .device[data-layout="e"][data-view="mic"] .pslot:not([data-key="mic"]),
+  .device[data-layout="e"][data-view="faders"] .pslot:not([data-key="faders"]) { display: none; }
+  .device[data-layout="e"]:is([data-view="mic"], [data-view="faders"]) .pslot { flex: 1 1 auto !important; max-height: none !important; }
+
+  .device[data-layout="e"] .drawer-scrim {
+    display: block; position: fixed; inset: 0; z-index: 25; background: rgba(0, 0, 0, .5);
+    opacity: 0; pointer-events: none; transition: opacity .45s var(--ease-out);
+  }
+  .device[data-layout="e"][data-drawer="open"] .drawer-scrim { opacity: 1; pointer-events: auto; }
+
+  /* A deitado: faders | tocando agora + pads quadrados | barra */
+  .device[data-layout="e"]:not([data-deck]) {
+    --ch: clamp(190px, 40dvh, 330px);
+    --ps: clamp(84px, calc((100dvh - 2 * var(--pad) - var(--ch) - 12px - 16px) / 3), 170px);
+    grid-template-columns: minmax(0, 1fr) calc(3 * var(--ps) + 16px) var(--rw);
+    grid-template-rows: var(--ch) minmax(0, 1fr);
+    grid-template-areas: "faders lcd panel" "faders pads panel";
+    gap: 12px var(--pad);
+  }
+  .device[data-layout="e"]:not([data-deck]) .page-pads { align-self: stretch; }
+  .device[data-layout="e"]:not([data-deck]):has(.lcd.has-video) { --ch: clamp(140px, calc((100dvh - 2 * var(--pad) - 12px) * .36), 330px); }
+
+  /* B deitado: barra de teclas | barra do player em cima, faders e pads embaixo | barra das partes */
+  .device[data-layout="e"][data-deck="b"] {
+    --bh: 96px;
+    --ps: clamp(84px, calc((100dvh - 2 * var(--pad) - var(--bh) - 14px - 16px) / 3), 170px);
+    grid-template-columns: 64px minmax(0, 1fr) calc(3 * var(--ps) + 16px) var(--rw);
+    grid-template-rows: var(--bh) minmax(0, 1fr);
+    grid-template-areas: "dock lcd lcd panel" "dock faders pads panel";
+    gap: 14px var(--pad);
+  }
+  .device[data-deck="b"] .knob-wrap { display: none; }
+  .device[data-deck="b"] .page-pads { align-self: stretch; }
+}
+
+/* em pé: tocando agora e pads quadrados lado a lado; faders e painel embaixo */
+@media (orientation: portrait) {
+  .device[data-layout="e"]:not([data-deck]) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, var(--ph)) 40px;
+    grid-template-areas: "lcd pads" "faders faders" "panel panel" "dock dock";
+  }
+  .device[data-layout="e"] .page-pads { aspect-ratio: 1; }
+  .device[data-layout="e"][data-deck="b"] {
+    --bh: 88px;
+    grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: var(--bh) auto minmax(0, 1fr) minmax(0, var(--ph));
+    grid-template-areas: "dock lcd lcd" "dock knob pads" "dock faders faders" "dock panel panel";
+  }
+  .device[data-deck="b"] .knob-wrap { display: grid; }
+}
+
+/* B: a barra de teclas à esquerda (as do rodapé) com a marca em pé no pé dela */
+.device[data-deck="b"] .dock {
+  flex-direction: column; justify-content: flex-start; align-items: center; gap: 8px; padding: 8px 0 34px;
+  border-radius: 12px; background: rgba(0, 0, 0, .22);
+  box-shadow: inset 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.03), 0 1px 0 var(--line);
+}
+.device[data-deck="b"] .dock-gap { flex: 1; }
+.device[data-deck="b"] .dock-key { flex: none; width: 46px; height: 46px; border-radius: 10px; }
+.device[data-deck="b"] .dock-key svg { width: 20px; height: 20px; }
+.device[data-deck="b"] .hold-ring { border-radius: 12px; }
+.device[data-deck="b"] .brand { grid-area: dock; align-self: end; justify-self: center; height: auto; padding-bottom: 8px; z-index: 1; }
+.device[data-deck="b"] .brand .wordmark { display: none; }
+
+/* troca A <-> B com três dedos: a tela antiga sobe e some, a nova chega de baixo */
+.vt-layout::view-transition-old(root) { animation: lay-out .42s cubic-bezier(.4, 0, 1, 1) both; }
+.vt-layout::view-transition-new(root) { animation: lay-in .6s var(--ease-out) both; }
+@keyframes lay-out { to { transform: translateY(-12%) scale(.94); opacity: 0; filter: blur(8px); } }
+@keyframes lay-in { from { transform: translateY(14%) scale(.97); opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .cap, .lcd-art, .page { transition-duration: .01ms; }
   .strip, .strip.is-leaving, .pop, .sheet[open], .pad.is-error { animation: none; }
   .caller-ring::before, .caller-ring::after { animation: none !important; }
   .caller .avatar { transition: none; }
   .pslot { animation: none; }
-  .pslot, .panel-clip, .fold-chev, .device[data-layout="e"] { transition-duration: .01ms; }
+  .pslot, .panel-clip, .fold-chev, .device[data-layout="e"], .device[data-layout="e"] .panel, .drawer-scrim { transition-duration: .01ms; }
+  .rail-part.is-new { animation: none !important; }
+  .lcd-art::after, .lcd-time, .transport, .lcd, .lcd-art { transition-duration: .01ms !important; }
   .device[data-layout="e"] #apps, .device[data-layout="e"] #main, .device[data-layout="e"] .strips-mic { transition: opacity .2s; transform: none !important; filter: none !important; }
 }
+
+/* "tocando agora": um pontinho por app no controle de mídia do Windows (arrastar pro lado troca) */
+.lcd-dots {
+  position: absolute; left: 50%; bottom: 8px; z-index: 3; translate: -50% 0; display: flex; gap: 5px;
+  padding: 4px 6px; border-radius: 99px; background: rgba(0, 0, 0, .45); pointer-events: none;
+}
+.lcd-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.35); transition: width .3s var(--ease-out), background .3s; }
+.lcd-dots i.is-on { width: 14px; border-radius: 3px; background: #fff; }
+.lcd-dots.is-pinned i.is-on { box-shadow: 0 0 6px var(--led-glow); }
+.device[data-deck="b"] .lcd-dots { bottom: 6px; }
 
 /* atributo hidden sempre vence (as teclas têm display próprio) */
 [hidden] { display: none !important; }
