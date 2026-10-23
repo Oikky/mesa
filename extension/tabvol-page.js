@@ -49,7 +49,7 @@
   // captureStream() dá uma cópia do som do elemento (antes do volume) sem mexer no que toca;
   // ela vai pra um AudioContext só nosso, que não sai no alto-falante.
   const meters = new Set();
-  const tapped = new WeakSet();
+  const tapped = new WeakMap(); // elemento -> religa o medidor na trilha de áudio atual
   let meterCtx = null;
   function meterContext() {
     if (!meterCtx) {
@@ -59,26 +59,37 @@
     return meterCtx;
   }
   function tap(el) {
-    if (tapped.has(el) || viaGraph.has(el) || typeof el.captureStream !== "function") return;
+    if (tapped.has(el)) return tapped.get(el)();
+    if (viaGraph.has(el) || typeof el.captureStream !== "function") return;
     let stream;
     try { stream = el.captureStream(); } catch { return; } // protegido (DRM) ou outro site
-    tapped.add(el);
+    // trocar a fonte do elemento (o YouTube faz isso a cada música) encerra a trilha de áudio e
+    // põe outra no stream: o medidor passa pra trilha nova, senão fica mudo pro resto da página
+    let meter = null, src = null, cur = null;
     const hook = () => {
-      if (!stream.getAudioTracks().length) return false;
+      const track = stream.getAudioTracks().filter((t) => t.readyState === "live").pop();
+      if (!track || track === cur) return;
       const ctx = meterContext();
-      if (!ctx) return true;
+      if (!ctx) return;
       try {
-        const an = ctx.createAnalyser();
-        an.fftSize = 512;
-        connect.call(ctx.createMediaStreamSource(stream), an);
-        meters.add({
-          an, buf: new Float32Array(an.fftSize),
-          scale: () => (el.paused || el.muted ? 0 : (siteVol.has(el) ? siteVol.get(el) : 1) * gain),
-        });
+        if (!meter) {
+          const an = ctx.createAnalyser();
+          an.fftSize = 512;
+          meter = {
+            an, buf: new Float32Array(an.fftSize),
+            scale: () => (el.paused || el.muted ? 0 : (siteVol.has(el) ? siteVol.get(el) : 1) * gain),
+          };
+          meters.add(meter);
+        }
+        try { src?.disconnect(); } catch { /* já desligado */ }
+        src = ctx.createMediaStreamSource(new MediaStream([track]));
+        connect.call(src, meter.an);
+        cur = track;
       } catch { /* sem medidor */ }
-      return true;
     };
-    if (!hook()) stream.addEventListener("addtrack", function once() { if (hook()) stream.removeEventListener("addtrack", once); });
+    tapped.set(el, hook);
+    hook();
+    stream.addEventListener("addtrack", hook);
   }
   document.addEventListener("playing", (e) => { if (e.target instanceof HTMLMediaElement) tap(e.target); }, true);
 
