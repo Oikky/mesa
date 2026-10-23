@@ -50,11 +50,17 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - [ ] Pads: hoje o layout E mostra só os 9 primeiros; decidir se tem página extra ou rolagem.
 - [ ] Pad "Mime" do desenho: descobrir o que é (app/atalho) e o que o painel dele deve mostrar.
 
-## Próximo (pedido em 22/10)
-- [ ] Pads com sugestões: tocar no pad do YouTube/Spotify/etc. mostra o que já tocou, playlists minhas;
-      Create 26.2 deixa escolher o mundo/mapa pra abrir. Vale pra todos os pads (cada app com sua fonte).
+## Próximo
+- [ ] Sugestões nos outros pads: Discord (servidores/canais), OBS (cenas), etc.
+- [ ] Spotify: autorizar a Mesa de novo (segurar o pad do Spotify > "Autorizar no notebook") pra
+      aparecer o que tocou antes (permissão nova `user-read-recently-played`).
 
 ## Feito (resumo)
+- 22/10/2026: segurar um pad (e soltar sem arrastar) abre as sugestões dele por cima dos pads:
+  YouTube (o que passou no notebook, `config/history.json`), Spotify (tocou há pouco + playlists),
+  Create 26.2 (mundos; escolher marca como último jogado com cópia `level.dat_mesa` e abre o jogo),
+  VS Code (pastas recentes). Editar o pad: lápis na gaveta. Fila da barra anda suave (anel desliza,
+  lista sobe); arrastar o player funciona no tablet; três dedos sem filter/blur (fluido).
 - 22/10/2026: EQ saiu da tela (o servidor continua com `eq.py`). Faders com largura padrão (112 px,
   encolhem até 84 se faltar lugar); L/R também na aba (extensão 1.6.0: StereoPanner; recarregar + F5).
   Canal chega abrindo espaço e sai apagando/encolhendo, vizinhos deslizam. Mute = tecla do tamanho do

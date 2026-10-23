@@ -97,6 +97,18 @@
     <!-- E · painel da direita: até 3 partes (o que toca, a call, o que eu abri); montado pelo app.js -->
     <aside class="panel" id="panel" aria-live="polite"></aside>
 
+    <!-- segurar um pad: o que dá pra abrir direto nele (já tocou, playlists, mundos, pastas) -->
+    <section class="sg" id="sg" aria-label="Sugestões do pad" hidden>
+      <header class="sg-head">
+        <span class="sg-icon" id="sg-icon" aria-hidden="true"></span>
+        <span class="sg-title" id="sg-title"></span>
+        <button class="key key-small" id="sg-open"><svg><use href="/icons/sprite.svg#i-external-link"/></svg><span class="sg-open-l">Abrir</span></button>
+        <button class="key key-small sg-sq" id="sg-edit" aria-label="Editar pad"><svg><use href="/icons/sprite.svg#i-pencil"/></svg></button>
+        <button class="key key-small sg-sq" id="sg-close" aria-label="Fechar"><svg><use href="/icons/sprite.svg#i-x"/></svg></button>
+      </header>
+      <div class="sg-body" id="sg-body"></div>
+    </section>
+
     <!-- A/B deitado: barra lateral (ícones das partes; no A também as teclas do rodapé, movidas pelo app.js) -->
     <nav class="rail" id="rail" aria-label="Barra lateral">
       <div class="rail-parts" id="rail-parts"></div>

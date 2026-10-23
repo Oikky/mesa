@@ -46,6 +46,7 @@ from discord_rpc import Discord  # noqa: E402
 from eq import Equalizer  # noqa: E402
 from spotify import Spotify, SpotifyError  # noqa: E402
 from tabs import Tabs  # noqa: E402
+import suggest  # noqa: E402
 import updates  # noqa: E402
 from video import Video  # noqa: E402
 
@@ -242,6 +243,57 @@ async def prune_video():
             await broadcast({"t": "video", "d": video.snapshot()})
 
 
+async def send_suggest(ws, pad_id):
+    """Segurou o pad: o que dá pra abrir direto nele (já tocou, playlists, mundos, pastas)."""
+    pad = next((p for p in pads.load() if p.get("id") == pad_id), None)
+    k = suggest.kind(pad) if pad else None
+    target = (pad or {}).get("action", {}).get("target", "")
+    try:
+        if k == "youtube":
+            d = await asyncio.to_thread(suggest.youtube)
+        elif k == "spotify":
+            d = await asyncio.to_thread(suggest.spotify, spotify)
+        elif k == "minecraft":
+            d = await asyncio.to_thread(suggest.minecraft, target)
+        elif k == "vscode":
+            d = await asyncio.to_thread(suggest.vscode)
+        else:
+            d = None
+    except Exception as e:
+        d = {"sections": [], "note": f"Não deu pra ler: {e}"}
+    await ws.send_text(json.dumps({"t": "suggest", "d": {"id": pad_id, "kind": k, **(d or {})}}))
+
+
+async def run_suggest(ws, pad_id, item):
+    pad = next((p for p in pads.load() if p.get("id") == pad_id), None)
+    k = suggest.kind(pad) if pad else None
+    target = (pad or {}).get("action", {}).get("target", "")
+    ident = str(item.get("id") or "")
+    try:
+        if not k or not ident:
+            raise LookupError("nada pra abrir")
+        if k == "youtube":
+            vid = ident[:20]
+            q = video.queue()
+            if q:  # já tem aba do YouTube: toca nela
+                await send_ext({"cmd": "ytplay", "tab": q["tab"], "id": vid})
+            else:
+                await asyncio.to_thread(os.startfile, f"https://www.youtube.com/watch?v={vid}")
+        elif k == "spotify":
+            if item.get("ctx"):
+                await asyncio.to_thread(spotify.play_context, ident)
+            else:
+                await asyncio.to_thread(spotify.play, ident)
+        elif k == "minecraft":
+            await asyncio.to_thread(suggest.mc_pick, target, ident)
+        elif k == "vscode":
+            await asyncio.to_thread(suggest.vscode_pick, target, ident)
+        res = {"id": pad_id, "ok": True}
+    except Exception as e:
+        res = {"id": pad_id, "ok": False, "error": str(e)}
+    await ws.send_text(json.dumps({"t": "padResult", "d": res}))
+
+
 async def run_pad(ws, pad_id, force=False):
     pad = next((p for p in pads.load() if p.get("id") == pad_id), None)
     try:
@@ -302,6 +354,10 @@ async def ws_endpoint(ws: WebSocket):
                 mixer.route(msg["id"], msg.get("device"))
             elif t == "pad":
                 asyncio.create_task(run_pad(ws, msg["id"], bool(msg.get("force"))))
+            elif t == "suggest":
+                asyncio.create_task(send_suggest(ws, str(msg.get("id") or "")))
+            elif t == "suggestGo":
+                asyncio.create_task(run_suggest(ws, str(msg.get("id") or ""), msg.get("item") or {}))
             elif t == "panel":
                 asyncio.create_task(send_panel(ws, str(msg.get("app") or "")))
             elif t == "ytplay":
@@ -384,6 +440,12 @@ async def ws_endpoint(ws: WebSocket):
         pass
     finally:
         clients.discard(ws)
+
+
+@app.get("/mcicon/{inst}/{world}")
+async def mcicon(inst: str, world: str):
+    p = suggest.mc_icon(inst, world)
+    return FileResponse(p, media_type="image/png") if p else Response(status_code=404)
 
 
 @app.get("/art/{h}")
@@ -497,6 +559,8 @@ async def yt_state(req: Request):
         return Response(status_code=403)
     msg = await req.json()
     video.update(msg)
+    if msg.get("playing") and not msg.get("ad") and msg.get("id"):
+        await asyncio.to_thread(suggest.yt_seen, str(msg["id"])[:20], str(msg.get("title") or ""))
     if msg.get("kind") == "queue":
         await broadcast({"t": "ytq", "d": video.queue()})
     else:

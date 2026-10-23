@@ -18,7 +18,7 @@ import secrets_store
 
 REDIRECT = "http://127.0.0.1:8080/spotify/callback"
 SCOPES = ("user-read-playback-state user-modify-playback-state user-read-currently-playing "
-          "playlist-read-private playlist-read-collaborative")
+          "playlist-read-private playlist-read-collaborative user-read-recently-played")
 API = "https://api.spotify.com/v1"
 
 
@@ -198,6 +198,45 @@ class Spotify:
         cur = self._api("GET", "/me/player/currently-playing") or {}
         item = cur.get("item") or {}
         return {"playing": bool(cur.get("is_playing")), "title": item.get("name") or ""}
+
+    # ---------------------------------------------------------------- sugestões do pad
+    def _cached(self, key, fn, ttl=60):
+        hit = self._playlist_cache.get(key)
+        if hit and time.time() - hit[0] < ttl:
+            return hit[1]
+        data = fn()
+        self._playlist_cache[key] = (time.time(), data)
+        return data
+
+    def recent(self):
+        """O que tocou por último (sem repetir), pra tocar de novo."""
+        def get():
+            r = self._api("GET", "/me/player/recently-played?limit=40") or {}
+            seen, out = set(), []
+            for it in r.get("items") or []:
+                t = self._track(it.get("track"))
+                if t and t["uri"] not in seen:
+                    seen.add(t["uri"])
+                    out.append({**t, "id": t["uri"]})
+            return out[:20]
+        return self._cached("_recent", get)
+
+    def playlists(self):
+        def get():
+            r = self._api("GET", "/me/playlists?limit=40") or {}
+            out = []
+            for p in r.get("items") or []:
+                if not p:
+                    continue
+                imgs = p.get("images") or []
+                n = (p.get("tracks") or p.get("items") or {}).get("total") or 0
+                out.append({"id": p.get("uri"), "uri": p.get("uri"), "title": p.get("name") or "Playlist",
+                            "sub": f"{n} músicas", "img": imgs[0]["url"] if imgs else None, "ctx": True})
+            return out
+        return self._cached("_playlists", get, 300)
+
+    def play_context(self, uri):
+        self._api("PUT", "/me/player/play", {"context_uri": uri})
 
     def play(self, uri, context=None):
         body = {"context_uri": context, "offset": {"uri": uri}} if context else {"uris": [uri]}

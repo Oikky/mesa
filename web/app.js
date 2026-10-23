@@ -29,6 +29,7 @@ function connect() {
     else if (msg.t === "media") renderMedia(msg.d);
     else if (msg.t === "pads") renderPads(msg.d);
     else if (msg.t === "padResult") padResult(msg.d);
+    else if (msg.t === "suggest") renderSuggest(msg.d);
     else if (msg.t === "video") renderVideo(msg.d);
     else if (msg.t === "ver") checkVersion(msg.d);
     else if (msg.t === "panel") panelData(msg.d.app, msg.d.data);
@@ -1383,7 +1384,7 @@ function bindPad(b) {
     start = { x: e.clientX, y: e.clientY };
     timer = setTimeout(() => {
       longed = true;
-      if (!grid() || !b.dataset.id) return openEditor(+b.dataset.slot);
+      if (!grid() || !b.dataset.id) return holdPad(b);
       lifted = true;
       try { b.setPointerCapture(e.pointerId); } catch { /* dedo já saiu */ }
       b.classList.add("is-lifted");
@@ -1414,7 +1415,7 @@ function bindPad(b) {
         send({ t: "padMove", from: +b.dataset.slot, to });
         toast("Pad movido");
       } else if (!moved) {
-        openEditor(+b.dataset.slot);
+        holdPad(b);
       }
     }
     start = null;
@@ -1428,6 +1429,101 @@ function bindPad(b) {
     send({ t: "pad", id: b.dataset.id });
   });
 }
+
+// ------------------------------------------------------------ sugestões do pad (segurar)
+// Mesmo critério do servidor (suggest.kind): o que o pad abre diz que sugestão ele tem.
+function sgKind(p) {
+  const t = String(p?.action?.target || "").toLowerCase(), proc = String(p?.process || "").toLowerCase();
+  if (p?.action?.type !== "open") return null;
+  if (t.includes("youtube.com") || t.includes("youtu.be")) return "youtube";
+  if (t.startsWith("spotify:") || t.includes("open.spotify.com")) return "spotify";
+  if (t.startsWith("curseforge://launch-game")) return "minecraft";
+  if (proc === "code.exe" || t.endsWith("\\code.exe")) return "vscode";
+  return null;
+}
+function holdPad(b) {
+  const p = pads.find((x) => x.id === b.dataset.id);
+  if (!p || editing || !sgKind(p)) return openEditor(+b.dataset.slot);
+  openSuggest(p, b);
+}
+
+const sgEl = $("sg"), sgBody = $("sg-body");
+let sgPad = null;
+function openSuggest(p, from) {
+  sgPad = p;
+  sgEl.dataset.kind = sgKind(p);
+  $("sg-title").textContent = p.label;
+  $("sg-icon").innerHTML = icon(p.icon || "zap");
+  sgBody.innerHTML = `<div class="sg-skel">${"<i></i>".repeat(6)}</div>`;
+  sgEl.hidden = false;
+  // cresce saindo do pad que eu segurei
+  const r = sgEl.getBoundingClientRect(), f = from.getBoundingClientRect();
+  sgEl.style.transformOrigin = `${f.left + f.width / 2 - r.left}px ${f.top + f.height / 2 - r.top}px`;
+  if (!calm.matches) {
+    sgEl.animate([{ opacity: 0, transform: "scale(.86)" }, { opacity: 1, transform: "none" }],
+      { duration: 280, easing: "cubic-bezier(.2, .8, .2, 1)" });
+  }
+  send({ t: "suggest", id: p.id });
+}
+function closeSuggest() {
+  if (sgEl.hidden) return;
+  sgPad = null;
+  if (calm.matches) { sgEl.hidden = true; return; }
+  sgEl.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.94)" }],
+    { duration: 170, easing: "cubic-bezier(.4, 0, 1, 1)" }).finished.then(() => { if (!sgPad) sgEl.hidden = true; }, () => {});
+}
+function renderSuggest(d) {
+  if (!sgPad || d.id !== sgPad.id) return;
+  const wide = d.kind === "youtube", list = d.kind === "vscode";
+  const parts = [];
+  for (const sec of d.sections || []) {
+    if (!sec.items?.length) continue;
+    const h = document.createElement("h3");
+    h.className = "sg-sec silk";
+    h.textContent = sec.title;
+    const grid = document.createElement("div");
+    grid.className = `sg-grid${wide ? " is-wide" : ""}${list ? " is-list" : ""}`;
+    for (const it of sec.items) {
+      const b = document.createElement("button");
+      b.className = "sg-item";
+      const art = it.img ? `<span class="sg-art" style="background-image:url('${esc(it.img)}')"></span>`
+        : `<span class="sg-art is-icon">${icon(list ? "folder" : d.kind === "minecraft" ? "gamepad-2" : "music")}</span>`;
+      b.innerHTML = `${art}<span class="sg-text"><span class="sg-name">${esc(it.title)}</span><span class="sg-sub">${esc(it.sub || "")}</span></span>`;
+      b.addEventListener("click", () => {
+        send({ t: "suggestGo", id: sgPad.id, item: { id: it.id, ctx: !!it.ctx } });
+        b.classList.add("is-picked");
+        toast(it.title);
+        setTimeout(closeSuggest, 220);
+      });
+      grid.append(b);
+    }
+    parts.push(h, grid);
+  }
+  if (d.note) {
+    const n = document.createElement("p");
+    n.className = "sg-note";
+    n.textContent = d.note;
+    parts.push(n);
+    if (d.relogin) {
+      const b = document.createElement("button");
+      b.className = "key key-lit";
+      b.textContent = "Autorizar no notebook";
+      b.addEventListener("click", () => { send({ t: "splogin" }); toast("Abrindo o Spotify\nno notebook"); });
+      parts.push(b);
+    }
+  }
+  sgBody.replaceChildren(...parts);
+  sgBody.scrollTop = 0;
+  if (!calm.matches) {
+    sgBody.querySelectorAll(".sg-item").forEach((x, i) => x.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }],
+      { duration: 260, delay: Math.min(i, 10) * 22, easing: "cubic-bezier(.2, .8, .2, 1)", fill: "backwards" }));
+  }
+}
+$("sg-close").addEventListener("click", closeSuggest);
+$("sg-open").addEventListener("click", () => { if (sgPad) send({ t: "pad", id: sgPad.id }); closeSuggest(); });
+$("sg-edit").addEventListener("click", () => { const p = sgPad; closeSuggest(); if (p) openEditor(p.slot); });
+document.addEventListener("pointerdown", (e) => { if (sgPad && !sgEl.contains(e.target) && !e.target.closest(".pad")) closeSuggest(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSuggest(); });
 
 function padResult(r) {
   // o pad pode estar na grade e na fileira do início: acende os dois

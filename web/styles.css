@@ -1571,5 +1571,51 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 .lcd-dots.is-pinned i.is-on { box-shadow: 0 0 6px var(--led-glow); }
 .device[data-deck="b"] .lcd-dots { bottom: 6px; }
 
+/* sugestões do pad: cobre a área dos pads, cresce saindo do pad segurado */
+.sg {
+  grid-area: pads; z-index: 20; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr); container-type: inline-size; border-radius: 12px; background: #111112;
+  box-shadow: inset 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px rgba(0,0,0,.6);
+  overflow: hidden;
+}
+.sg-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 12px; border-bottom: 1px solid var(--line); }
+.sg-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--lcd); color: var(--ink-2); flex: none; }
+.sg-icon svg { width: 17px; height: 17px; }
+.sg-title { flex: 1; min-width: 0; font: 600 15px/1.2 var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-sq { width: 36px; padding: 0; flex: none; }
+.sg-head .key { flex: none; }
+@container (max-width: 380px) { .sg-open-l { display: none; } #sg-open { width: 36px; padding: 0; } }
+.sg-body { overflow-y: auto; overscroll-behavior: contain; padding: 4px 10px 12px; scrollbar-width: none; touch-action: pan-y; }
+.sg-body::-webkit-scrollbar { display: none; }
+.sg-sec { margin: 12px 2px 8px; }
+.sg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px 8px; }
+.sg-grid.is-wide { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.sg-grid.is-list { grid-template-columns: 1fr; gap: 4px; }
+.sg-item {
+  display: grid; gap: 6px; text-align: left; min-width: 0; padding: 0; border-radius: 10px; color: var(--ink);
+  transition: transform .12s var(--ease-out), opacity .2s;
+}
+.sg-item:active { transform: scale(.96); }
+.sg-item.is-picked { opacity: .55; }
+.sg-art {
+  display: grid; place-items: center; aspect-ratio: 1; border-radius: 8px; background: #1c1d1f center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 2px 6px rgba(0,0,0,.45); color: var(--ink-3);
+}
+.sg-grid.is-wide .sg-art { aspect-ratio: 16 / 9; }
+.sg[data-kind="minecraft"] .sg-art { image-rendering: pixelated; }
+.sg-art.is-icon svg { width: 26px; height: 26px; }
+.sg-text { display: grid; gap: 2px; min-width: 0; }
+.sg-name { font: 500 12.5px/1.25 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sg-sub { font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-grid.is-list .sg-item { grid-template-columns: 40px minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px; }
+.sg-grid.is-list .sg-item:hover, .sg-grid.is-list .sg-item:focus-visible { background: rgba(255,255,255,.04); }
+.sg-grid.is-list .sg-art { width: 40px; border-radius: 8px; }
+.sg-grid.is-list .sg-art.is-icon svg { width: 18px; height: 18px; }
+.sg-note { margin: 14px 4px 10px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.sg-skel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; padding-top: 12px; }
+.sg-skel i { aspect-ratio: 1; border-radius: 8px; background: linear-gradient(100deg, #18191a 30%, #222325 50%, #18191a 70%) 0 0 / 300% 100%; animation: sg-shine 1.2s linear infinite; }
+@keyframes sg-shine { to { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) { .sg-skel i { animation: none; } }
+
 /* atributo hidden sempre vence (as teclas têm display próprio) */
 [hidden] { display: none !important; }
