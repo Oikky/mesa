@@ -1046,7 +1046,7 @@ function npShow(on = true) {
       sw.on = true;
       lcd.setPointerCapture(e.pointerId);
     }
-    $("art").style.transform = `translateX(${dx * 0.35}px)`;
+    $("art").style.transform = `translate3d(${Math.sign(dx) * Math.min(Math.abs(dx) * 0.6, 90 + Math.abs(dx) * 0.15)}px, 0, 0)`;
     $("art").style.transition = "none";
   });
   const end = (e) => {
@@ -1837,7 +1837,7 @@ function paintRail() {
   const on = deviceEl.dataset.drawer === "open" && panel.view === "parts";
   const keys = (panel.keys || []).filter((k) => k !== panel.tab);
   const old = new Map([...railParts.querySelectorAll("[data-key]")].map((b) => [b.dataset.key, b]));
-  railParts.replaceChildren(...keys.map((k) => {
+  const next = keys.map((k) => {
     let b = old.get(k);
     if (!b) {
       b = document.createElement("button");
@@ -1867,7 +1867,9 @@ function paintRail() {
     g.dataset.svc = k;
     if (g.children[0] !== b || g.children[1] !== q || g.children.length !== 2) g.replaceChildren(b, q);
     return g;
-  }));
+  });
+  const now = [...railParts.children];
+  if (now.length !== next.length || now.some((el, i) => el !== next[i])) railParts.replaceChildren(...next);
   requestAnimationFrame(fitRail);
 }
 
@@ -1880,7 +1882,7 @@ function fitRail() {
   const kids = [...railParts.children];
   let free = railParts.clientHeight - 12 - 8 * (kids.length - 1);
   for (const el of kids) free -= el.classList.contains("rail-group") ? RAIL_GROUP : el.offsetHeight;
-  const need = groups.map((g) => g.querySelectorAll(".rail-cover").length);
+  const need = groups.map((g) => g.querySelectorAll(".rail-cover:not(.is-out)").length);
   const got = need.map((n) => Math.min(n, 1));
   let left = Math.floor(free / RAIL_ITEM) - got.reduce((a, b) => a + b, 0);
   while (left > 0) {
@@ -1894,7 +1896,7 @@ function fitRail() {
       if (!left) break;
     }
   }
-  groups.forEach((g, i) => g.querySelectorAll(".rail-cover").forEach((c, j) => { c.hidden = j >= got[i]; }));
+  groups.forEach((g, i) => g.querySelectorAll(".rail-cover:not(.is-out)").forEach((c, j) => { c.hidden = j >= got[i]; }));
 }
 new ResizeObserver(() => fitRail()).observe(railParts);
 
@@ -1908,33 +1910,106 @@ function railCovers(k, el) {
   const dc = panel.data.discord;
   const items = k === "discord"
     ? (dc?.status === "ok" && dc.channel ? dc.members : []).map((m) => ({
-      key: `${m.id}${m.speaking && !m.mute ? "!" : ""}`, title: m.name, img: m.avatar, current: !!m.speaking && !m.mute, av: true,
+      key: m.id, title: m.name, img: m.avatar, current: !!m.speaking && !m.mute, av: true,
       pick: () => { setView("parts"); openDrawer(); slots.get("discord")?.el.scrollIntoView({ block: "nearest" }); },
     }))
     : panel.rail[k];
   if (!items?.length || (k !== "spotify" && k !== "youtube" && k !== "discord")) return null;
   const sig = items.map((i) => `${i.key}${i.current ? "*" : ""}`).join("|");
   if (el && el.dataset.sig === sig) return el;
+  if (el?.isConnected && !calm.matches && k !== "discord") {
+    el.dataset.sig = sig;
+    slideRail(el, items);
+    return el;
+  }
   el = document.createElement("div");
   el.className = "rail-q";
   el.dataset.key = `q:${k}`;
   el.dataset.sig = sig;
-  for (const it of items) {
-    const b = document.createElement("button");
-    b.className = `rail-cover${it.av ? " is-av" : ""}`;
-    b.setAttribute("aria-current", String(!!it.current));
-    b.setAttribute("aria-label", it.av ? it.title : it.current ? `Tocando: ${it.title}` : `Tocar ${it.title}`);
-    if (it.av && !it.img) b.textContent = (it.title[0] || "?").toUpperCase();
-    if (it.img) b.style.backgroundImage = `url("${it.img.replace(/"/g, "%22")}")`;
+  fillRail(el, items, new Map());
+  return el;
+}
+
+// uma capa da fila (o botão guarda o item, então dá pra reaproveitar quando a fila muda)
+function railCover(it, b) {
+  if (!b) {
+    b = document.createElement("button");
     b.addEventListener("click", () => {
-      if (it.av) return it.pick();
-      if (it.current || !it.pick) return;
-      it.pick();
+      const x = b._it;
+      if (x.av) return x.pick();
+      if (x.current || !x.pick) return;
+      x.pick();
       b.classList.add("is-picked");
     });
-    el.append(b);
   }
-  return el;
+  b._it = it;
+  b.dataset.k = it.key;
+  b.className = `rail-cover${it.av ? " is-av" : ""}`;
+  b.setAttribute("aria-current", String(!!it.current));
+  b.setAttribute("aria-label", it.av ? it.title : it.current ? `Tocando: ${it.title}` : `Tocar ${it.title}`);
+  if (it.av && !it.img) b.textContent = (it.title[0] || "?").toUpperCase();
+  const bg = it.img ? `url("${it.img.replace(/"/g, "%22")}")` : "";
+  if (b.style.backgroundImage !== bg) b.style.backgroundImage = bg;
+  return b;
+}
+function fillRail(el, items, byKey) {
+  el.replaceChildren(...items.map((it) => railCover(it, byKey.get(it.key))));
+}
+
+// Música trocou: 1) o anel desliza da que tocava até a nova; 2) a lista inteira sobe até a nova
+// ficar em primeiro (as de cima saem por cima, as novas entram por baixo).
+function slideRail(el, items) {
+  const token = (el._t = (el._t || 0) + 1);
+  el.querySelectorAll(".rail-ring, .rail-cover.is-out").forEach((x) => x.remove());
+  const btns = [...el.querySelectorAll(".rail-cover")];
+  const byKey = new Map(btns.map((b) => [b.dataset.k, b]));
+  const curKey = (items.find((i) => i.current) || items[0])?.key;
+  const from = btns.find((b) => b.getAttribute("aria-current") === "true");
+  const to = byKey.get(curKey);
+  const ease = "cubic-bezier(.2, .8, .2, 1)";
+
+  const slideList = () => {
+    if (el._t !== token) return;
+    const tops = new Map(btns.filter((b) => !b.hidden).map((b) => [b, b.offsetTop]));
+    const keep = new Set(items.map((i) => i.key));
+    const out = btns.filter((b) => !keep.has(b.dataset.k) && tops.has(b));
+    fillRail(el, items, byKey);
+    fitRail();
+    let shift = 0;
+    for (const b of el.querySelectorAll(".rail-cover")) {
+      if (b.hidden) continue;
+      if (tops.has(b)) {
+        const dy = tops.get(b) - b.offsetTop;
+        if (!shift) shift = dy;
+        if (dy) b.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 520, easing: ease });
+      } else {
+        b.animate([{ transform: "translateY(28px)", opacity: 0 }, { transform: "none", opacity: 1 }],
+          { duration: 520, delay: 140, easing: ease, fill: "backwards" });
+      }
+    }
+    // as que saíram sobem junto e somem por cima
+    for (const b of out) {
+      b.classList.add("is-out");
+      b.style.top = `${tops.get(b)}px`;
+      el.append(b);
+      b.animate([{ transform: "none", opacity: 1 }, { transform: `translateY(${shift || -54}px)`, opacity: 0 }],
+        { duration: 520, easing: ease, fill: "forwards" }).finished.then(() => b.remove(), () => b.remove());
+    }
+  };
+
+  if (from && to && from !== to && !to.hidden) {
+    const ring = document.createElement("i");
+    ring.className = "rail-ring";
+    el.append(ring);
+    from.setAttribute("aria-current", "false");
+    ring.animate([{ transform: `translateY(${from.offsetTop}px)` }, { transform: `translateY(${to.offsetTop}px)` }],
+      { duration: 340, easing: ease, fill: "forwards" }).finished.then(() => {
+      if (el._t !== token) return;
+      to.setAttribute("aria-current", "true");
+      ring.remove();
+      slideList();
+    }, () => {});
+  } else slideList();
 }
 function pingRail(key) {
   const b = railParts?.querySelector(`[data-key="${CSS.escape(key)}"]`);
@@ -2626,42 +2701,56 @@ portrait.addEventListener("change", () => setLayout(layoutId));
 
 // três dedos arrastando pra cima: A <-> B. O aparelho sobe junto com os dedos e a troca anima.
 {
-  let y0 = null, done = false;
+  let y0 = null, done = false, dy = 0, raf = 0;
   const avgY = (t) => [...t].reduce((s, x) => s + x.clientY, 0) / t.length;
-  const settle = () => {
-    deviceEl.style.transition = "transform .45s var(--ease-out), filter .45s var(--ease-out)";
+  const shade = document.createElement("div");
+  shade.className = "lay-shade";
+  document.body.append(shade);
+  const paint = () => {
+    raf = 0;
+    deviceEl.style.transform = `translate3d(0, ${dy * 0.35}px, 0) scale(${1 + dy / 3000})`;
+    shade.style.opacity = String(Math.min(0.5, -dy / 300));
+  };
+  const reset = () => {
+    cancelAnimationFrame(raf); raf = 0; dy = 0;
     deviceEl.style.transform = "";
-    deviceEl.style.filter = "";
-    setTimeout(() => (deviceEl.style.transition = ""), 460);
+    shade.style.opacity = "0";
+  };
+  const settle = () => {
+    deviceEl.style.transition = "transform .45s var(--ease-out)";
+    shade.style.transition = "opacity .45s var(--ease-out)";
+    reset();
+    setTimeout(() => { deviceEl.style.transition = ""; shade.style.transition = ""; deviceEl.style.willChange = ""; }, 460);
   };
   document.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 3) { y0 = avgY(e.touches); done = false; }
-    else if (e.touches.length > 3) y0 = null;
+    if (e.touches.length === 3) {
+      y0 = avgY(e.touches); done = false; dy = 0;
+      deviceEl.style.transition = "none";
+      deviceEl.style.willChange = "transform"; // camada própria antes de começar a mexer
+    } else if (e.touches.length > 3) y0 = null;
   }, { passive: true });
   document.addEventListener("touchmove", (e) => {
     if (y0 === null || done || e.touches.length !== 3) return;
-    const dy = Math.min(0, avgY(e.touches) - y0);
-    if (!calm.matches) {
-      deviceEl.style.transition = "none";
-      deviceEl.style.transform = `translateY(${dy * 0.35}px) scale(${1 + dy / 3000})`;
-      deviceEl.style.filter = `brightness(${1 + dy / 900})`;
-    }
+    e.preventDefault(); // o navegador não tenta rolar/zoom junto
+    dy = Math.min(0, avgY(e.touches) - y0);
+    if (!calm.matches && !raf) raf = requestAnimationFrame(paint);
     if (dy > -90) return;
     done = true;
     y0 = null;
     const id = layoutId === "b" ? "e" : "b";
     const swap = () => {
       deviceEl.style.transition = "none";
-      deviceEl.style.transform = "";
-      deviceEl.style.filter = "";
+      reset();
+      deviceEl.style.willChange = "";
       setLayout(id);
       toast(id === "b" ? "Layout\nB" : "Layout\nA");
     };
     if (document.startViewTransition && !calm.matches) {
+      cancelAnimationFrame(raf); raf = 0;
       document.documentElement.classList.add("vt-layout");
       document.startViewTransition(swap).finished.finally(() => document.documentElement.classList.remove("vt-layout"));
     } else swap();
-  }, { passive: true });
+  }, { passive: false });
   document.addEventListener("touchend", (e) => {
     if (e.touches.length >= 3) return;
     if (y0 !== null && !done) settle();

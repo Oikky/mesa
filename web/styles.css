@@ -1376,7 +1376,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   .device:has(.lcd:not(.is-color)) .rail-group { --gc: 225 225 222; }
   .rail-group > .rail-part { background: transparent; box-shadow: none; color: color-mix(in srgb, rgb(var(--gc)) 70%, #fff); margin-bottom: 8px; }
   .rail-group > .rail-part[aria-pressed="true"] { color: #fff; }
-  .rail-group .rail-q { gap: 8px; padding: 0; }
+  .rail-group .rail-q { gap: 8px; padding: 0; position: relative; overflow: clip; overflow-clip-margin: 8px; }
+  .rail-ring {
+    position: absolute; left: 50%; top: 0; width: 46px; height: 46px; margin-left: -23px; border-radius: 8px; z-index: 1; pointer-events: none;
+    box-shadow: 0 0 0 2px #0d0d0e, 0 0 0 3.5px var(--led), 0 0 12px var(--led-glow);
+  }
+  .rail-cover.is-out { position: absolute; left: 50%; margin-left: -23px; pointer-events: none; }
   .rail-cover.is-av { border-radius: 50%; display: grid; place-items: center; font: 600 15px/1 var(--sans); color: var(--ink); background-color: #2a2b30; }
   .rail-cover.is-av:not([aria-current="true"]) { opacity: .85; }
   .rail-cover.is-av[aria-current="true"] { box-shadow: 0 0 0 2px #0d0d0e, 0 0 0 3.5px rgb(var(--gc, 255 255 255)), 0 0 12px rgb(var(--gc, 255 255 255) / .5); }
@@ -1539,8 +1544,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 /* troca A <-> B com três dedos: a tela antiga sobe e some, a nova chega de baixo */
 .vt-layout::view-transition-old(root) { animation: lay-out .42s cubic-bezier(.4, 0, 1, 1) both; }
 .vt-layout::view-transition-new(root) { animation: lay-in .6s var(--ease-out) both; }
-@keyframes lay-out { to { transform: translateY(-12%) scale(.94); opacity: 0; filter: blur(8px); } }
-@keyframes lay-in { from { transform: translateY(14%) scale(.97); opacity: 0; } }
+@keyframes lay-out { to { transform: translate3d(0, -12%, 0) scale(.94); opacity: 0; } }
+.lay-shade { position: fixed; inset: 0; z-index: 90; background: #000; opacity: 0; pointer-events: none; will-change: opacity; }
+@keyframes lay-in { from { transform: translate3d(0, 14%, 0) scale(.97); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   .cap, .lcd-art, .page { transition-duration: .01ms; }
@@ -1554,6 +1560,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   .device[data-layout="e"] #apps, .device[data-layout="e"] #main, .device[data-layout="e"] .strips-mic { transition: opacity .2s; transform: none !important; filter: none !important; }
 }
 
+.lcd, .lcd .lcd-art { touch-action: pan-y; }
 /* "tocando agora": um pontinho por app no controle de mídia do Windows (arrastar pro lado troca) */
 .lcd-dots {
   position: absolute; left: 50%; bottom: 8px; z-index: 3; translate: -50% 0; display: flex; gap: 5px;
