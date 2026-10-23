@@ -235,6 +235,12 @@ class Spotify:
             return out
         return self._cached("_playlists", get, 300)
 
+    def skip(self, n):
+        """Pula n faixas da fila (a playlist continua tocando)."""
+        for _ in range(max(1, min(int(n), 30))):
+            self._api("POST", "/me/player/next")
+            time.sleep(0.25)
+
     def play_context(self, uri):
         self._api("PUT", "/me/player/play", {"context_uri": uri})
 

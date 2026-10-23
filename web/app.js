@@ -2287,13 +2287,20 @@ function renderYouTube(q) {
   centerCurrent(pBody, `yt|${q.items.find((i) => i.current)?.id}`);
 }
 
+// tocar uma da fila sem derrubar a playlist: se ela é da playlist que toca, toca dentro dela;
+// senão pula até ela (como apertar "próxima" n vezes). Faixa solta (uris) faz o Spotify parar.
+function spQueuePick(d, it, idx) {
+  if (d.context?.uri && d.context.items?.some((x) => x.uri === it.uri)) send({ t: "spplay", uri: it.uri, context: d.context.uri });
+  else send({ t: "spskip", n: idx + 1 });
+}
+
 function renderSpotify(d) {
   head("Spotify", d?.context?.name || (d?.now ? "Fila" : "Spotify"), icon("spotify"));
   pFoot.replaceChildren();
   // na barra: a que toca agora e as próximas (a fila do Spotify já inclui o resto da playlist)
   railQueue("spotify", d?.status === "ok" ? [
     ...(d.now ? [{ ...d.now, current: true }] : []),
-    ...(d.queue || []).map((i) => ({ ...i, pick: () => send({ t: "spplay", uri: i.uri }) })),
+    ...(d.queue || []).map((i, n) => ({ ...i, pick: () => spQueuePick(d, i, n) })),
   ].map((i) => ({ key: i.uri, title: i.title, img: i.img, current: i.current, pick: i.pick })) : []);
   if (!d) return note("Carregando…");
   if (d.status === "setup") return note(`Falta ligar o Spotify na Mesa.<br>No notebook, siga o passo a passo <b>Spotify</b> do arquivo <code>PROMPT.md</code> (5 min).`);
@@ -2315,7 +2322,7 @@ function renderSpotify(d) {
   }
   if (d.queue?.length) {
     parts.push(section("A seguir"));
-    parts.push(trackList(d.queue, (it) => send({ t: "spplay", uri: it.uri })));
+    parts.push(trackList(d.queue, (it) => spQueuePick(d, it, d.queue.indexOf(it))));
   }
   if (!parts.length) return note(d.now ? "Sem fila agora." : "Nada tocando no Spotify.");
   pBody.replaceChildren(...parts);

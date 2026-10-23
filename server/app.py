@@ -388,6 +388,15 @@ async def ws_endpoint(ws: WebSocket):
                         await ws.send_text(json.dumps({"t": "toast", "d": str(e)}))
                     await send_panel(ws, "spotify")
                 asyncio.create_task(sp_play())
+            elif t == "spskip":
+                async def sp_skip(n=msg.get("n") or 1):
+                    try:
+                        await asyncio.to_thread(spotify.skip, n)
+                        await asyncio.sleep(0.6)
+                    except SpotifyError as e:
+                        await ws.send_text(json.dumps({"t": "toast", "d": str(e)}))
+                    await send_panel(ws, "spotify")
+                asyncio.create_task(sp_skip())
             elif t == "splogin":
                 # abre o login do Spotify no navegador do próprio notebook
                 os.startfile(f"http://127.0.0.1:{HTTP_PORT}/spotify/login")
