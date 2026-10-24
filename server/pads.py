@@ -22,7 +22,7 @@ from pathlib import Path
 
 PATH = Path(__file__).resolve().parent.parent / "config" / "pads.json"
 IMAGES = PATH.parent / "pad-images"
-SLOTS = 15  # grade 5 × 3
+SLOTS = 18  # duas páginas de 3 × 3 no tablet
 
 DEFAULT = [  # primeira vez num PC novo (cada um muda pelo tablet: segurar o pad)
     {"id": "p1", "slot": 0, "label": "YouTube", "icon": "video", "bg": "/pad-presets/youtube.png",

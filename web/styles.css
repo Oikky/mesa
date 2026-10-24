@@ -1571,6 +1571,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 .lcd-dots.is-pinned i.is-on { box-shadow: 0 0 6px var(--led-glow); }
 .device[data-deck="b"] .lcd-dots { bottom: 6px; }
 
+/* páginas de pads: LEDs na borda direita da área (como os bancos dos faders); tocar troca também */
+.pad-pages { display: none; }
+.device[data-layout="e"] .page-pads { position: relative; }
+.device[data-layout="e"] .pad-pages:not([hidden]) {
+  display: grid; align-content: center; gap: 6px; position: absolute; top: 0; bottom: 0; right: calc(-1 * var(--pad) + 2px); width: 12px;
+}
+.pad-page { width: 12px; height: 22px; display: grid; place-items: center; }
+.pad-page::before { content: ""; width: 4px; height: 8px; border-radius: 2px; background: var(--led-off); transition: height .35s var(--ease-out), background .25s, box-shadow .25s; }
+.pad-page[aria-pressed="true"]::before { height: 18px; background: var(--led); box-shadow: 0 0 6px var(--led-glow); }
+
 /* sugestões do pad: cobre a área dos pads, cresce saindo do pad segurado */
 .sg {
   grid-area: pads; z-index: 20; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr);

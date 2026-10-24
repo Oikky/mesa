@@ -1289,7 +1289,7 @@ new ResizeObserver(() => {
 }).observe($("video"));
 
 // ------------------------------------------------------------ pads
-const SLOTS = 15;
+const SLOTS = 18; // duas páginas de 3 × 3 (arrastar pra cima/baixo na área dos pads troca)
 const ICONS = ["music", "video", "globe", "app-window", "folder", "monitor", "speaker", "headphones", "mic", "mic-off",
   "volume-2", "volume-x", "keyboard", "gamepad-2", "message-circle", "camera", "radio", "tv", "terminal",
   "lightbulb", "zap", "star", "house", "coffee", "moon", "sun", "bell", "lock", "play", "pause"];
@@ -1353,7 +1353,9 @@ function renderPads(list) {
   $("quick").dataset.count = home.length;
 }
 
-// A/B: pads quadrados; se sobra altura, aparecem mais fileiras (as vazias com "+" pra adicionar)
+// A/B: pads quadrados; se sobra altura, aparecem mais fileiras (as vazias com "+" pra adicionar).
+// O que não cabe vai pra outra página, como os bancos dos faders: arrastar pra cima traz a próxima.
+let padPage = 0, padPer = 9;
 function fitPads() {
   const on = deviceEl.dataset.layout === "e";
   const W = padsEl.clientWidth, H = padsEl.parentElement.clientHeight;
@@ -1361,7 +1363,60 @@ function fitPads() {
   const rows = on && cell > 0 ? Math.max(3, Math.min(SLOTS / 3, Math.floor((H + 8) / (cell + 8)))) : SLOTS / 3;
   padsEl.style.setProperty("--rows", rows);
   padsEl.style.setProperty("--cell", on ? `${Math.floor(cell)}px` : "1fr");
-  [...padsEl.children].forEach((b, i) => (b.hidden = on && i >= rows * 3));
+  padPer = on ? rows * 3 : SLOTS;
+  const pages = Math.ceil(SLOTS / padPer);
+  padPage = Math.min(padPage, pages - 1);
+  [...padsEl.children].forEach((b, i) => (b.hidden = on && (i < padPage * padPer || i >= (padPage + 1) * padPer)));
+  paintPadPages(pages);
+}
+function paintPadPages(pages) {
+  const box = $("pad-pages");
+  box.hidden = pages < 2;
+  if (box.children.length !== pages) {
+    box.replaceChildren(...Array.from({ length: pages }, (_, i) => {
+      const b = document.createElement("button");
+      b.className = "pad-page";
+      b.setAttribute("aria-label", `Pads, página ${i + 1}`);
+      b.addEventListener("click", () => setPadPage(i));
+      return b;
+    }));
+  }
+  [...box.children].forEach((b, i) => b.setAttribute("aria-pressed", String(i === padPage)));
+}
+function setPadPage(n) {
+  const pages = Math.ceil(SLOTS / padPer);
+  n = Math.max(0, Math.min(pages - 1, n));
+  if (n === padPage) {
+    // já está na ponta: um tranco curto pra mostrar que não tem mais
+    if (!calm.matches) padsEl.animate([{ transform: "none" }, { transform: `translateY(${n ? -10 : 10}px)` }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.2, .8, .2, 1)" });
+    return;
+  }
+  const dir = n > padPage ? 1 : -1;
+  const go = () => { padPage = n; fitPads(); };
+  if (calm.matches) return go();
+  padsEl.animate([{ transform: "none", opacity: 1 }, { transform: `translateY(${-dir * 28}px)`, opacity: 0 }],
+    { duration: 150, easing: "cubic-bezier(.4, 0, 1, 1)" }).finished.then(() => {
+    go();
+    padsEl.animate([{ transform: `translateY(${dir * 36}px)`, opacity: 0 }, { transform: "none", opacity: 1 }],
+      { duration: 320, easing: "cubic-bezier(.2, .8, .2, 1)" });
+  }, go);
+}
+// arrastar pra cima/baixo na área dos pads (um dedo, sem ter levantado um pad)
+let padSwiped = false;
+{
+  let sw = null;
+  padsEl.addEventListener("pointerdown", (e) => { sw = { x: e.clientX, y: e.clientY, id: e.pointerId }; padSwiped = false; });
+  padsEl.addEventListener("pointermove", (e) => {
+    if (!sw || e.pointerId !== sw.id || padsEl.classList.contains("is-arranging")) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (Math.abs(dy) < 48 || Math.abs(dy) < Math.abs(dx) * 1.4) return;
+    sw = null;
+    padSwiped = true;
+    setPadPage(padPage + (dy < 0 ? 1 : -1));
+  });
+  const end = () => { sw = null; setTimeout(() => (padSwiped = false), 0); };
+  padsEl.addEventListener("pointerup", end);
+  padsEl.addEventListener("pointercancel", end);
 }
 new ResizeObserver(() => fitPads()).observe(padsEl.parentElement);
 
@@ -1424,7 +1479,7 @@ function bindPad(b) {
   b.addEventListener("pointercancel", () => { clearTimeout(timer); if (lifted) drop(); start = null; });
   b.addEventListener("contextmenu", (e) => e.preventDefault());
   b.addEventListener("click", () => {
-    if (longed) return;
+    if (longed || padSwiped) return;
     if (editing || !b.dataset.id) return openEditor(+b.dataset.slot);
     send({ t: "pad", id: b.dataset.id });
   });
