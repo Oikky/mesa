@@ -39,7 +39,7 @@ call do Discord, volume/saída de jogos).
   nunca mostrar/compartilhar)**.
 
 ## Layouts
-Dois layouts, salvos no tablet em `mesa.layout3`; **três dedos pra cima** alternam (com animação de
+Dois layouts, salvos no tablet em `mesa.layout3`; **dois dedos (arrastar pra cima ou dois toques)** alternam (fora dos faders; com animação de
 View Transition). Tocar em MESACONTROL não faz nada.
 - **A · Painel** (no código ainda `data-layout="e"`): faders à esquerda; no meio o "tocando agora"
   no estilo do mini player do Spotify (capa numa faixa da cor dela; tocar mostra controles e tempo

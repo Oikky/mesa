@@ -2768,7 +2768,7 @@ keepAwake();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
 // ------------------------------------------------------------ layouts
-// E e B são o mesmo aparelho (B = E com trilho à esquerda, data-deck="b"); três dedos pra cima
+// E e B são o mesmo aparelho (B = E com trilho à esquerda, data-deck="b"); dois dedos (arrastar pra cima ou dois toques)
 // alternam entre os dois. O, A, C, D são tentativas antigas (só pelo ?layout= no endereço).
 const LAYOUTS = [
   ["o", "Original"],
@@ -2802,10 +2802,12 @@ function setLayout(id) {
 }
 portrait.addEventListener("change", () => setLayout(layoutId));
 
-// três dedos arrastando pra cima: A <-> B. O aparelho sobe junto com os dedos e a troca anima.
+// Dois dedos: arrastar pra cima ou dois toques rápidos alternam A <-> B. O aparelho sobe junto com
+// os dedos e a troca anima. Não conta se um dedo começou num controle (dá pra mexer dois faders juntos).
 {
-  let y0 = null, done = false, dy = 0, raf = 0;
-  const avgY = (t) => [...t].reduce((s, x) => s + x.clientY, 0) / t.length;
+  const CONTROLS = ".track, .pan, .knob, .lcd-bar, .hslider, input, .strip-name, .sg, .rail-q";
+  let g = null, dy = 0, raf = 0, lastTap = 0;
+  const avg = (t, k) => [...t].reduce((s, x) => s + x[k], 0) / t.length;
   const shade = document.createElement("div");
   shade.className = "lay-shade";
   document.body.append(shade);
@@ -2825,21 +2827,7 @@ portrait.addEventListener("change", () => setLayout(layoutId));
     reset();
     setTimeout(() => { deviceEl.style.transition = ""; shade.style.transition = ""; deviceEl.style.willChange = ""; }, 460);
   };
-  document.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 3) {
-      y0 = avgY(e.touches); done = false; dy = 0;
-      deviceEl.style.transition = "none";
-      deviceEl.style.willChange = "transform"; // camada própria antes de começar a mexer
-    } else if (e.touches.length > 3) y0 = null;
-  }, { passive: true });
-  document.addEventListener("touchmove", (e) => {
-    if (y0 === null || done || e.touches.length !== 3) return;
-    e.preventDefault(); // o navegador não tenta rolar/zoom junto
-    dy = Math.min(0, avgY(e.touches) - y0);
-    if (!calm.matches && !raf) raf = requestAnimationFrame(paint);
-    if (dy > -90) return;
-    done = true;
-    y0 = null;
+  const swapLayout = () => {
     const id = layoutId === "b" ? "e" : "b";
     const swap = () => {
       deviceEl.style.transition = "none";
@@ -2853,13 +2841,40 @@ portrait.addEventListener("change", () => setLayout(layoutId));
       document.documentElement.classList.add("vt-layout");
       document.startViewTransition(swap).finished.finally(() => document.documentElement.classList.remove("vt-layout"));
     } else swap();
+  };
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 2) {
+      const free = [...e.touches].every((x) => !x.target.closest?.(CONTROLS));
+      g = free ? { x: avg(e.touches, "clientX"), y: avg(e.touches, "clientY"), at: e.timeStamp, drag: false, done: false, moved: 0 } : null;
+    } else if (e.touches.length > 2) g = null;
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!g || g.done || e.touches.length !== 2) return;
+    const dx = avg(e.touches, "clientX") - g.x, ddy = avg(e.touches, "clientY") - g.y;
+    g.moved = Math.max(g.moved, Math.hypot(dx, ddy));
+    if (!g.drag) {
+      if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(ddy)) { g = null; return; } // rolagem pro lado
+      if (ddy > -14 || Math.abs(ddy) < Math.abs(dx) * 1.5) return;
+      g.drag = true;
+      deviceEl.style.transition = "none";
+      deviceEl.style.willChange = "transform"; // camada própria antes de começar a mexer
+    }
+    e.preventDefault(); // o navegador não tenta rolar junto
+    dy = Math.min(0, ddy);
+    if (!calm.matches && !raf) raf = requestAnimationFrame(paint);
+    if (dy > -90) return;
+    g.done = true;
+    swapLayout();
   }, { passive: false });
   document.addEventListener("touchend", (e) => {
-    if (e.touches.length >= 3) return;
-    if (y0 !== null && !done) settle();
-    y0 = null;
+    if (!g || e.touches.length) return; // espera os dois dedos saírem
+    const t = g; g = null;
+    if (t.drag) { if (!t.done) settle(); return; }
+    // toque com dois dedos: curto e parado; dois seguidos trocam o layout
+    if (e.timeStamp - t.at > 320 || t.moved > 14) return;
+    if (e.timeStamp - lastTap < 450) { lastTap = 0; swapLayout(); } else lastTap = e.timeStamp;
   }, { passive: true });
-  document.addEventListener("touchcancel", () => { if (y0 !== null) settle(); y0 = null; }, { passive: true });
+  document.addEventListener("touchcancel", () => { if (g?.drag && !g.done) settle(); g = null; }, { passive: true });
 }
 setLayout(new URLSearchParams(location.search).get("layout") || store.get("mesa.layout3") || "e");
 setMode(store.get("mesa.mode") || "mixer");
