@@ -16,6 +16,11 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - [x] Discord conectado (22/10/2026). Era: criar o app em discord.com/developers (OAuth2: Client ID + Reset Secret, redirect
       `http://127.0.0.1`). Client ID e Secret já no `.env` (22/10); falta conferir o redirect e "Conectar" no painel e aprovar no
       Discord do notebook.
+- [ ] Terminal: `rtk init -g` (hook do RTK; a permissão automática bloqueou). Depois abrir um chat novo e
+      conferir que Superpowers, Ponytail, Context7 e differential-review carregaram (instalados 27/10;
+      Ponytail: `/plugin configure ponytail@ponytail`). Ver `docs/setup.md`.
+- [ ] **Decidir a correção de segurança** (revisão de 27/10, relatório privado em
+      `%LOCALAPPDATA%\security-reviews\`): como o tablet prova que é ele (ex.: código de pareamento).
 
 ## Amigo (Luiz) usando a Mesa — 22/10/2026
 - Repo público: https://github.com/Oikky/mesa (branch main). Ele instalou em `C:\Users\luizg\Mesa`
@@ -56,6 +61,9 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       aparecer o que tocou antes (permissão nova `user-read-recently-played`).
 
 ## Feito (resumo)
+- 27/10/2026: vibe-coding-toolkit (prompt 12) aplicado: `Checar.bat` (ruff + 21 testes pytest + ESLint),
+  `docs/quality.md` e `docs/setup.md`, Graphify (grafo do código, fora do git), uv e RTK instalados,
+  revisão de segurança de base (privada). Propostas separadas: quebrar `web/app.js`, winrt 4.x.
 - 22/10/2026: segurar um pad (e soltar sem arrastar) abre as sugestões dele por cima dos pads:
   YouTube (o que passou no notebook, `config/history.json`), Spotify (tocou há pouco + playlists),
   Create 26.2 (mundos; escolher marca como último jogado com cópia `level.dat_mesa` e abre o jogo),

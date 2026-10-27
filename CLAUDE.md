@@ -61,6 +61,10 @@ no A, toque na barra no B; salvo em `mesa.mono`). Capas de fader claras, teclas 
 do CLAUDE.md global (impeccable etc.).
 
 ## Como testar
+- **Antes de dizer que está pronto: `Checar.bat`** (ruff, pytest em `tests/`, ESLint; não liga nada).
+  Regras, dívidas e revisão de segurança: `docs/quality.md`. Como o projeto foi configurado: `docs/setup.md`.
+- Pergunta sobre o código ("quem chama X", "o que depende de Y"): `graphify query "..."` (grafo em
+  `graphify-out/`, fora do git; refazer com `graphify update .`). Ler o arquivo continua valendo pro detalhe.
 - **Playwright com o Edge** (`channel="msedge"`), nunca o Chrome. Screenshots: deitado 1000×600 @2x,
   em pé 600×1000 @2x (+ desktop). Página: `https://127.0.0.1:8443/?layout=e` (ignore_https_errors).
 - **Eu costumo estar ouvindo música**: não mutar o master nem tocar som nos testes. Edge de teste com
