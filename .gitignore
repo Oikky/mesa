@@ -22,3 +22,9 @@ config/eq.json
 config/history.json
 # cache local do impeccable (sessões, caminhos deste PC)
 .impeccable/
+# grafo do código (graphify), gerado em cada PC
+graphify-out/
+# caches das checagens (Checar.bat)
+.pytest_cache/
+.ruff_cache/
+node_modules/

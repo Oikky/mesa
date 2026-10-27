@@ -1,0 +1,22 @@
+# Graphify: o que NÃO entra no grafo (segredos, coisas geradas, notas só deste PC)
+.git/
+.venv/
+__pycache__/
+graphify-out/
+.impeccable/
+.claude/
+node_modules/
+logs/
+certs/
+config/
+.env
+.env.*
+*.pem
+*.key
+*.log
+CLAUDE.local.md
+PROMPT.md
+web/fonts/
+web/icons/
+web/pad-presets/
+*.png

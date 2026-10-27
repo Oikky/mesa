@@ -72,7 +72,7 @@ class Equalizer:
             if self.on and any(self.bands):
                 # pré-ganho negativo do tamanho do maior reforço, pra não distorcer
                 lines.append(f"Preamp: {-max(0.0, max(self.bands)):.1f} dB")
-                lines.append("GraphicEQ: " + "; ".join(f"{f} {g:.1f}" for f, g in zip(FREQS, self.bands)))
+                lines.append("GraphicEQ: " + "; ".join(f"{f} {g:.1f}" for f, g in zip(FREQS, self.bands, strict=True)))
             (cfg / "mesa.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
             main = cfg / "config.txt"
             text = main.read_text(encoding="utf-8", errors="replace") if main.exists() else ""

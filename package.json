@@ -1,0 +1,13 @@
+{
+  "name": "mesa",
+  "private": true,
+  "description": "Só pras checagens do JS (Checar.bat). A Mesa não usa Node pra rodar.",
+  "scripts": {
+    "lint": "eslint web extension"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0"
+  }
+}

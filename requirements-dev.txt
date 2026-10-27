@@ -1,0 +1,4 @@
+# Só pra desenvolver/checar (Checar.bat). O Atualizar.bat não instala isto.
+-r requirements.txt
+ruff>=0.15
+pytest>=8

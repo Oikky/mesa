@@ -1,0 +1,11 @@
+# Lint do Python (Checar.bat). Só regras que acham bug de verdade; formatação não é cobrada.
+target-version = "py311"
+line-length = 120
+extend-exclude = [".venv", "graphify-out"]
+
+[lint]
+# E4/E7/E9/F: erros e nomes; B: armadilhas comuns; ASYNC: bloquear o loop do FastAPI.
+select = ["E4", "E7", "E9", "F", "B", "ASYNC"]
+# E701/E702/E731: o código usa "if x: return" e lambdas curtas de propósito (estilo da casa).
+# B008: as tarefas do WS capturam msg.get(...) em parâmetro padrão de propósito (fixa o valor).
+ignore = ["E701", "E702", "E731", "B008"]

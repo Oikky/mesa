@@ -492,7 +492,7 @@ async def pad_bg_file(pad_id: str):
     """Fundo que aponta pra um arquivo do notebook (escrito à mão no pads.json)."""
     pad = next((p for p in pads.load() if p.get("id") == pad_id), None)
     f = Path(str((pad or {}).get("bg", "")))
-    if not pad or not f.is_absolute() or not f.is_file():
+    if not pad or not f.is_absolute() or not f.is_file():  # noqa: ASYNC240 (stat local, rápido)
         return Response(status_code=404)
     return FileResponse(f, media_type=mimetypes.guess_type(f.name)[0] or "image/png")
 
@@ -502,7 +502,7 @@ async def channel_icon(key: str, src: str = ""):
     icon = icons.choice(key)
     if src != "app" and icons.is_file(icon):
         f = Path(icon)
-        if f.is_file():
+        if f.is_file():  # noqa: ASYNC240 (stat local, rápido)
             return FileResponse(f, media_type=mimetypes.guess_type(f.name)[0] or "image/png",
                                 headers={"Cache-Control": "public, max-age=86400"})
         return Response(status_code=404)
