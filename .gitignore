@@ -20,3 +20,5 @@ CLAUDE.local.md
 PROMPT.md
 config/eq.json
 config/history.json
+# cache local do impeccable (sessões, caminhos deste PC)
+.impeccable/
