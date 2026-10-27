@@ -32,7 +32,7 @@ tablet › menu › **Instalar app**. Não precisa instalar certificado. Pra con
 `Instalar.bat --tailscale`.
 
 **Sem Tailscale (mesmo Wi-Fi do PC):**
-1. Abrir `http://IP-DO-PC:8080` e seguir a página: instala o certificado da Mesa (uma vez).
+1. Abrir `http://IP-DO-PC:8070` e seguir a página: instala o certificado da Mesa (uma vez).
 2. Abrir `https://IP-DO-PC:8443` › menu do Chrome › **Instalar app**.
 
 Se o Windows perguntar do firewall na primeira vez, permitir em **rede privada**.
@@ -59,7 +59,7 @@ escondidos (`config/`), certificados (`certs/`).
 `Instalar.bat --chaves` (Enter mantém o que já está).
 
 - **Spotify:** <https://developer.spotify.com/dashboard> › Create app › Redirect URI
-  `http://127.0.0.1:8080/spotify/callback` › marcar **Web API** › copiar o **Client ID**.
+  `http://127.0.0.1:8070/spotify/callback` › marcar **Web API** › copiar o **Client ID**.
   Depois, no tablet: painel do Spotify › **Autorizar no notebook**. Tocar faixas exige Premium.
 - **Discord:** <https://discord.com/developers/applications> › New Application › **OAuth2**: copiar
   **Client ID**, **Reset Secret** e copiar o **Client Secret**, e em Redirects adicionar
@@ -74,7 +74,7 @@ escondidos (`config/`), certificados (`certs/`).
 | `Parar Mesa.bat` | desliga |
 | `Iniciar com o Windows.ps1` | liga/desliga o “abrir junto com o Windows” (`-Remover` pra tirar) |
 | `logs/mesa.log` | o que aconteceu (mandar esse arquivo quando algo der errado) |
-| <http://127.0.0.1:8080/diag> | o que a Mesa está recebendo agora (abrir no PC e mandar o texto quando algo não aparece) |
+| <http://127.0.0.1:8070/diag> | o que a Mesa está recebendo agora (abrir no PC e mandar o texto quando algo não aparece) |
 
 No tablet: tocar em um pad dispara, **segurar e arrastar** troca ele de lugar, **segurar e soltar**
 edita. Arrastar pra baixo na coluna dos faders mostra os microfones. A tecla do olho escolhe quais

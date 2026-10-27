@@ -1,7 +1,7 @@
 """Mesa: controla o som do notebook pela rede.
 
 HTTPS (porta 8443): o app em si (PWA instalável no tablet).
-HTTP  (porta 8080): só a página de configuração, pra baixar o certificado.
+HTTP  (porta 8070): só a página de configuração, pra baixar o certificado.
 """
 import asyncio
 import ctypes
@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 ROOT = Path(__file__).resolve().parent.parent
 HTTPS_PORT = 8443
-HTTP_PORT = 8080
+HTTP_PORT = 8070
 
 # Rodando com pythonw (sem janela, ao iniciar o Windows) não existe console: vai tudo pro log.
 if sys.stdout is None or sys.stderr is None:
@@ -646,7 +646,7 @@ def local_only(req: Request):
 @setup.get("/spotify/login")
 async def spotify_login(req: Request):
     if not local_only(req):
-        return HTMLResponse("Abra este endereço no próprio notebook: http://127.0.0.1:8080/spotify/login", 403)
+        return HTMLResponse("Abra este endereço no próprio notebook: http://127.0.0.1:8070/spotify/login", 403)
     try:
         return RedirectResponse(spotify.login_url())
     except SpotifyError as e:

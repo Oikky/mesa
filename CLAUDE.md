@@ -24,7 +24,7 @@ call do Discord, volume/saída de jogos).
 - Dependência nova: pôr no `requirements.txt` (o Atualizar.bat instala). Commits: `Área: o que mudou`.
 
 ## Estrutura
-- `server/` (Python 3.14, venv `.venv`): `app.py` (FastAPI; HTTPS 8443 = app, HTTP 8080 = página
+- `server/` (Python 3.14, venv `.venv`): `app.py` (FastAPI; HTTPS 8443 = app, HTTP 8070 = página
   de setup + coisas só do notebook: `/yt` e `/ext` da extensão, login do Spotify), `audio.py`
   (pycaw, thread COM própria), `media.py` (winrt, controle de mídia do Windows), `routing.py`
   (saída por app, interface não documentada do EarTrumpet), `pads.py`, `icons.py` (ícone do .exe e

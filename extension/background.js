@@ -1,8 +1,8 @@
 // Repassa o estado das abas do YouTube pro servidor da Mesa no próprio notebook, e recebe
 // de volta os comandos do tablet (tocar um item da fila, volume/mute de uma aba). Fica aqui (e
 // não no content script) porque a extensão tem permissão pro 127.0.0.1; a página não tem.
-const MESA = "http://127.0.0.1:8080";
-const MESA_WS = "ws://127.0.0.1:8080/ext";
+const MESA = "http://127.0.0.1:8070";
+const MESA_WS = "ws://127.0.0.1:8070/ext";
 
 function post(path, body) {
   fetch(MESA + path, {

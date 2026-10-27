@@ -2,8 +2,8 @@
 
 Usa a Web API oficial com login PKCE (não precisa de senha do app, só do client_id).
 Configurar uma vez: criar um app em developer.spotify.com, pôr o redirect
-http://127.0.0.1:8080/spotify/callback, colar o client_id em config/secrets.json e abrir
-http://127.0.0.1:8080/spotify/login no notebook.
+http://127.0.0.1:8070/spotify/callback, colar o client_id em config/secrets.json e abrir
+http://127.0.0.1:8070/spotify/login no notebook.
 """
 import base64
 import hashlib
@@ -16,7 +16,7 @@ import urllib.request
 
 import secrets_store
 
-REDIRECT = "http://127.0.0.1:8080/spotify/callback"
+REDIRECT = "http://127.0.0.1:8070/spotify/callback"
 SCOPES = ("user-read-playback-state user-modify-playback-state user-read-currently-playing "
           "playlist-read-private playlist-read-collaborative user-read-recently-played")
 API = "https://api.spotify.com/v1"

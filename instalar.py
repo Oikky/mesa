@@ -87,7 +87,7 @@ def keys():
     env = read_env()
     title("Spotify (opcional: fila e playlist no painel)")
     print(f"""  1. Entre em {B}https://developer.spotify.com/dashboard{X} › Create app (nome qualquer).
-  2. Redirect URI: {B}http://127.0.0.1:8080/spotify/callback{X} · marque {B}Web API{X} · Save.
+  2. Redirect URI: {B}http://127.0.0.1:8070/spotify/callback{X} · marque {B}Web API{X} · Save.
   3. Em Settings, copie o {B}Client ID{X}.
   {D}Depois, no tablet: painel do Spotify › "Autorizar no notebook". Controlar o Spotify exige Premium.{X}""")
     ask_key(env, "MESA_SPOTIFY_CLIENT_ID", "Client ID do Spotify")
@@ -223,7 +223,7 @@ def finish(ts_url=None):
 """)
     else:
         print(f"""  {B}Tablet{X} (mesmo Wi-Fi do PC):
-    1. Abra {B}http://{ip}:8080{X} e siga a página: instala o certificado da Mesa (uma vez).
+    1. Abra {B}http://{ip}:8070{X} e siga a página: instala o certificado da Mesa (uma vez).
     2. Depois abra {B}https://{ip}:8443{X} › menu do Chrome › {B}Instalar app{X}.
     {D}Se o Windows perguntar do firewall na primeira vez, permita em rede privada.{X}
 """)

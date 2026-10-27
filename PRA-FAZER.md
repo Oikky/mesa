@@ -10,8 +10,8 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - [ ] Recarregar a extensão em `edge://extensions` (↻ no card da Mesa) — **versão 1.5.0 (volume, medidor e saída por aba; fila do YouTube pelos dados) pede acesso
       a todos os sites** (precisa pra mexer no volume de qualquer aba): aceitar. Depois dar F5 nas abas
       que já estavam abertas (sem F5 a aba aparece, mas só o mute funciona; o painel avisa).
-- [x] Spotify conectado (22/10/2026). Era: criar o app em developer.spotify.com (redirect `http://127.0.0.1:8080/spotify/callback`,
-      Web API), Client ID já no `.env` (22/10). Falta: redirect URI no dashboard + autorizar em http://127.0.0.1:8080/spotify/login no notebook.
+- [x] Spotify conectado (22/10/2026). Era: criar o app em developer.spotify.com (redirect `http://127.0.0.1:8070/spotify/callback`,
+      Web API), Client ID já no `.env` (22/10). Falta: redirect URI no dashboard + autorizar em http://127.0.0.1:8070/spotify/login no notebook.
       Passo a passo no fim do `PROMPT.md`. (Abas já abertas no Edge em 22/10/2026.)
 - [x] Discord conectado (22/10/2026). Era: criar o app em discord.com/developers (OAuth2: Client ID + Reset Secret, redirect
       `http://127.0.0.1`). Client ID e Secret já no `.env` (22/10); falta conferir o redirect e "Conectar" no painel e aprovar no
@@ -25,9 +25,9 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - Status: Discord dele conectado (faltava o Redirect `http://127.0.0.1` no app do Discord).
   Spotify dele levou 429 e o Spotify mandou esperar 1 h (versão antiga perguntava demais; já corrigido).
 - [ ] Confirmar com ele depois da 1 h: fila do Spotify e do YouTube aparecendo no Opera. Se não,
-      pedir o texto de http://127.0.0.1:8080/diag do PC dele.
+      pedir o texto de http://127.0.0.1:8070/diag do PC dele.
 - [ ] Se o Spotify der 403 "conta não liberada": ele está usando o Client ID de outra pessoa → criar
-      o app dele (developer.spotify.com, redirect `http://127.0.0.1:8080/spotify/callback`).
+      o app dele (developer.spotify.com, redirect `http://127.0.0.1:8070/spotify/callback`).
 
 ## Próximo
 - [ ] Testar volume por aba de verdade (depois de recarregar a extensão): duas abas tocando, sub-faders,
@@ -93,7 +93,7 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - 22/10/2026: fila do YouTube lida dos dados do YouTube (`extension/yt-data.js`, mundo da página):
   vem completa até em aba de fundo, com nome do canal (antes lia a tela, que monta aos poucos).
   Parte do Spotify aparece quando a conta diz que está tocando (`spnow`, vale pro Spotify Web/Opera);
-  a do YouTube quando a extensão diz que tem vídeo tocando. Diagnóstico em http://127.0.0.1:8080/diag.
+  a do YouTube quando a extensão diz que tem vídeo tocando. Diagnóstico em http://127.0.0.1:8070/diag.
 - 22/10/2026: pronto pra compartilhar: repositório git próprio (main), `Instalar.bat`/`instalar.py`
   (venv, dependências, chaves no terminal, ligar com o Windows), `Atualizar.bat` (pull + deps +
   reinicia; avisa se a extensão mudou), aviso de versão nova no tablet (tecla com seta no rodapé,

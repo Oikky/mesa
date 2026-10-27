@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Mesa · vídeo e volume das abas",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Avisa a Mesa qual vídeo do YouTube está tocando e deixa o tablet mudar o volume de cada aba.",
   "permissions": ["storage"],
   "host_permissions": ["<all_urls>"],
