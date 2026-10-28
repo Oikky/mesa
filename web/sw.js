@@ -24,7 +24,7 @@ self.addEventListener("fetch", (e) => {
     fetch(e.request.mode === "navigate" ? e.request : new Request(e.request, { cache: "no-cache" }))
       .then((res) => {
         const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, copy));
         return res;
       })
       .catch(() => caches.match(e.request))

@@ -19,6 +19,7 @@ layouts-mesa.png
 CLAUDE.local.md
 PROMPT.md
 config/eq.json
+config/pair.txt
 config/history.json
 # cache local do impeccable (sessões, caminhos deste PC)
 .impeccable/

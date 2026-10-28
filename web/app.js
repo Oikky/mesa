@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const deviceEl = $("device");
 const tpl = $("strip-tpl");
 const SPRITE = "/icons/sprite.svg";
-const icon = (name) => `<svg aria-hidden="true"><use href="${SPRITE}#i-${name}"/></svg>`;
+const icon = (name) => `<svg aria-hidden="true"><use href="${SPRITE}#i-${String(name).replace(/[^\w-]/g, "")}"/></svg>`;
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* sem armazenamento */ } },
@@ -18,8 +18,9 @@ function connect() {
   if (ws && ws.readyState <= 1) return;
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
   ws.onopen = () => { retry = 0; setLink(true); };
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     setLink(false);
+    if (e.code === 4401) return askPair();  // notebook não conhece este tablet
     setTimeout(connect, Math.min(4000, 400 * 2 ** retry++));
   };
   ws.onmessage = (e) => {
@@ -47,6 +48,28 @@ function connect() {
     else if (msg.t === "toast") toast(msg.d);
   };
 }
+
+// pareamento: o código vai pro /pair, que devolve um cookie (vale pro /ws e pras imagens)
+function askPair() {
+  const dlg = $("pair");
+  if (!dlg.open) dlg.showModal();
+}
+$("pair").addEventListener("cancel", (e) => e.preventDefault());  // sem código não tem o que fazer
+$("pair-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget, btn = form.querySelector("button"), hint = $("pair-hint");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/pair", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: form.code.value }) });
+    if (res.ok) { $("pair").close(); location.reload(); return; }  // recarrega pra trazer as imagens também
+    hint.textContent = res.status === 401 ? "Código errado. Confira em http://127.0.0.1:8070 no notebook." : "O notebook recusou. Tente de novo.";
+  } catch {
+    hint.textContent = "Sem conexão com o notebook.";
+  }
+  btn.disabled = false;
+  form.code.select();
+});
 
 // versão do app que está carregada; se o notebook tiver uma mais nova, recarrega
 const loadedVer = new URL(document.querySelector('script[src*="app.js"]').src).searchParams.get("v");

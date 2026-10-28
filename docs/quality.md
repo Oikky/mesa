@@ -56,7 +56,9 @@ revisão de segurança abaixo (modo diff).
   e execute o bloco Prompt neste projeto"* (para uma mudança: dizer o intervalo de commits).
 - Só leitura; o relatório vai pra `%LOCALAPPDATA%\security-reviews\` (fora do repositório, que é público).
 - **27/10/2026, baseline:** feita. Há achados abertos sobre acesso pela rede; detalhes só no relatório
-  privado deste notebook. Correção pendente (ver `PRA-FAZER.md`).
+  privado deste notebook.
+- **27/10/2026, diff do pareamento:** achados da baseline corrigidos e sondados no servidor real
+  (relatório privado `mesa-2026-10-27-diff-pareamento.md`).
 
 ## Avaliar o agente (harness)
 

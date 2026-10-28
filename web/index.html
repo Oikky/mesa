@@ -159,6 +159,18 @@
     <span class="hint">Imagem própria: ponha o caminho do arquivo em <code>config/channels.json</code>.</span>
   </div>
 
+  <!-- pareamento: o notebook só aceita tablet com o código dele -->
+  <dialog class="sheet" id="pair">
+    <form id="pair-form">
+      <header class="sheet-head"><span class="silk">Parear com o notebook</span></header>
+      <label class="field"><span class="silk">Código</span>
+        <input name="code" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX" required>
+        <span class="hint" id="pair-hint">No notebook, abra http://127.0.0.1:8070 e digite o código que aparece lá.</span>
+      </label>
+      <footer class="sheet-foot"><span></span><button class="key key-lit">Parear</button></footer>
+    </form>
+  </dialog>
+
   <!-- editor de pad -->
   <dialog class="sheet" id="editor">
     <form method="dialog" id="editor-form">

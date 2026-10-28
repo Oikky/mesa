@@ -41,6 +41,7 @@ from certs import DIR as CERT_DIR, ensure_certs, lan_ips  # noqa: E402
 import icons  # noqa: E402
 from media import Media  # noqa: E402
 import pads  # noqa: E402
+import pairing  # noqa: E402
 import psutil  # noqa: E402
 from discord_rpc import Discord  # noqa: E402
 from eq import Equalizer  # noqa: E402
@@ -315,9 +316,24 @@ async def run_pad(ws, pad_id, force=False):
 app = FastAPI(lifespan=lifespan)
 
 
+def paired(conn):
+    return pairing.ok(conn.cookies.get(pairing.COOKIE))
+
+
+def own_origin(conn):
+    h = conn.headers
+    return pairing.same_origin(h.get("origin"), h.get("host"), h.get("x-forwarded-host"))
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
+    if not own_origin(ws):  # site de fora tentando falar com a Mesa
+        await ws.close()
+        return
     await ws.accept()
+    if not paired(ws):
+        await ws.close(4401)  # o tablet mostra a tela de parear
+        return
     clients.add(ws)
     try:
         if mixer.state():
@@ -466,6 +482,32 @@ async def art(h: str):
     return Response(data, media_type=ctype, headers={"Cache-Control": "public, max-age=86400"})
 
 
+pair_lock = asyncio.Lock()
+
+
+@app.post("/pair")
+async def pair(req: Request):
+    """Tablet digitou o código do notebook: guarda num cookie (vale pro /ws e pras imagens)."""
+    if not own_origin(req):
+        return Response(status_code=403)
+    try:
+        code = (await req.json()).get("code")
+    except (ValueError, AttributeError):
+        code = ""
+    async with pair_lock:  # um palpite por vez, 1 s de espera por erro: adivinhar leva anos
+        if not pairing.ok(code):
+            await asyncio.sleep(1)
+            return Response(status_code=401)
+    res = Response(status_code=204)
+    set_pair_cookie(res)
+    return res
+
+
+def set_pair_cookie(res):
+    res.set_cookie(pairing.COOKIE, pairing.code(), max_age=pairing.MAX_AGE,
+                   httponly=True, secure=True, samesite="lax")
+
+
 @app.post("/pad-image")
 async def pad_image(req: Request):
     """Fundo de pad mandado pelo tablet (já vem reduzido pra 288 px)."""
@@ -487,12 +529,15 @@ async def pad_img(name: str):
     return FileResponse(f, headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".bmp", ".svg"}
+
+
 @app.get("/padbg/{pad_id}")
 async def pad_bg_file(pad_id: str):
     """Fundo que aponta pra um arquivo do notebook (escrito à mão no pads.json)."""
     pad = next((p for p in pads.load() if p.get("id") == pad_id), None)
     f = Path(str((pad or {}).get("bg", "")))
-    if not pad or not f.is_absolute() or not f.is_file():  # noqa: ASYNC240 (stat local, rápido)
+    if not pad or not f.is_absolute() or f.suffix.lower() not in IMAGE_EXT or not f.is_file():  # noqa: ASYNC240
         return Response(status_code=404)
     return FileResponse(f, media_type=mimetypes.guess_type(f.name)[0] or "image/png")
 
@@ -502,7 +547,7 @@ async def channel_icon(key: str, src: str = ""):
     icon = icons.choice(key)
     if src != "app" and icons.is_file(icon):
         f = Path(icon)
-        if f.is_file():  # noqa: ASYNC240 (stat local, rápido)
+        if f.suffix.lower() in IMAGE_EXT and f.is_file():  # noqa: ASYNC240 (stat local, rápido)
             return FileResponse(f, media_type=mimetypes.guess_type(f.name)[0] or "image/png",
                                 headers={"Cache-Control": "public, max-age=86400"})
         return Response(status_code=404)
@@ -526,16 +571,25 @@ def web_version():
 
 
 @app.get("/")
-async def index():
+async def index(req: Request):
     # CSS/JS com a versão no endereço: o tablet nunca fica preso numa versão velha do cache
     v = web_version()
     html = (WEB / "index.html").read_text(encoding="utf-8")
     html = html.replace('href="/styles.css"', f'href="/styles.css?v={v}"').replace('src="/app.js"', f'src="/app.js?v={v}"')
-    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+    res = HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+    if paired(req):
+        set_pair_cookie(res)  # renova os 400 dias toda vez que o app abre
+    return res
+
+
+# rotas que mexem ou leem coisas do notebook: só tablet pareado
+PRIVATE = ("/pad-image", "/padbg/", "/icon/", "/padimg/", "/art/", "/mcicon/")
 
 
 @app.middleware("http")
 async def revalidate(req, call_next):
+    if req.url.path.startswith(PRIVATE) and not paired(req):
+        return Response(status_code=401)
     res = await call_next(req)
     if not req.url.path.startswith(("/art/", "/icon/", "/padimg/")):
         res.headers.setdefault("Cache-Control", "no-cache")
@@ -549,10 +603,13 @@ setup = FastAPI()
 
 
 @setup.get("/")
-async def setup_page():
+async def setup_page(req: Request):
     html = (WEB / "setup.html").read_text(encoding="utf-8")
     ip = (lan_ips() or ["127.0.0.1"])[0]
-    return HTMLResponse(html.replace("{{APP_URL}}", f"https://{ip}:{HTTPS_PORT}/"))
+    # o código só aparece no próprio notebook: quem está na rede vê só as instruções
+    pair = (f"<code class='pair'>{pairing.pretty()}</code>" if local_only(req)
+            else "<p class='path'>Abra esta página no próprio notebook pra ver o código.</p>")
+    return HTMLResponse(html.replace("{{APP_URL}}", f"https://{ip}:{HTTPS_PORT}/").replace("{{PAIR}}", pair))
 
 
 @setup.get("/mesa-ca.crt")
@@ -564,7 +621,7 @@ async def ca():
 @setup.post("/yt")
 async def yt_state(req: Request):
     """Estado do YouTube mandado pela extensão do navegador. Só aceita do próprio notebook."""
-    if req.client is None or req.client.host not in ("127.0.0.1", "::1"):
+    if not local_only(req):
         return Response(status_code=403)
     msg = await req.json()
     video.update(msg)
@@ -617,7 +674,7 @@ async def tabs_state(req: Request):
 @setup.websocket("/ext")
 async def ext_ws(ws: WebSocket):
     """Canal de volta pra extensão do navegador (só do próprio notebook)."""
-    if ws.client is None or ws.client.host not in ("127.0.0.1", "::1"):
+    if ws.client is None or ws.client.host not in ("127.0.0.1", "::1") or not pairing.from_extension(ws.headers.get("origin")):
         await ws.close()
         return
     await ws.accept()
@@ -640,7 +697,9 @@ async def ext_ws(ws: WebSocket):
 
 
 def local_only(req: Request):
-    return req.client is not None and req.client.host in ("127.0.0.1", "::1")
+    """Pedido do próprio notebook, e não de um site aberto nele (esses mandam Origin http/https)."""
+    return (req.client is not None and req.client.host in ("127.0.0.1", "::1")
+            and pairing.from_extension(req.headers.get("origin")))
 
 
 @setup.get("/spotify/login")
