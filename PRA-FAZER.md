@@ -18,8 +18,7 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       Discord do notebook.
 - [x] Hook do RTK instalado (27/10/2026).
 - [x] Plugins carregados e Context7 testado (27/10/2026).
-- [ ] **Decidir a correção de segurança** (revisão de 27/10, relatório privado em
-      `%LOCALAPPDATA%\security-reviews\`): como o tablet prova que é ele (ex.: código de pareamento).
+- [x] Correção de segurança: **aprovado o código de pareamento** (27/10/2026). Fazer agora (ver "Próximo").
 
 ## Amigo (Luiz) usando a Mesa — 22/10/2026
 - Repo público: https://github.com/Oikky/mesa (branch main). Ele instalou em `C:\Users\luizg\Mesa`
@@ -34,6 +33,13 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       o app dele (developer.spotify.com, redirect `http://127.0.0.1:8070/spotify/callback`).
 
 ## Próximo
+- [ ] **FAZER PRIMEIRO — pareamento do tablet** (aprovado 27/10). Ler antes o relatório privado
+      `%LOCALAPPDATA%\security-reviews\mesa-2026-10-27-baseline.md` (achados S1–S5; detalhes não vão pro git, o repo é público).
+      Ideia aprovada: o notebook gera um código secreto na primeira vez (em `config/`, fora do git), a página
+      de setup mostra (código/QR), o tablet guarda e manda ao conectar; sem ele o servidor recusa. Também:
+      aceitar só a origem do próprio endereço da Mesa, e fechar os outros pontos do relatório. Cuidar do
+      Luiz (atualiza pelo git: ele vai precisar parear de novo; avisar). Testes em `tests/` + `Checar.bat`;
+      depois revisão de segurança modo diff (`docs/quality.md`). Doc do FastAPI via Context7 (WebSocketException 1008).
 - [ ] Testar volume por aba de verdade (depois de recarregar a extensão): duas abas tocando, sub-faders,
       painel do Edge, mute nativo, aba com WebAudio (jogo de navegador), Spotify Web.
 - [ ] Conferir no Discord se o volume das pessoas bate (a call real veio com 200 = máximo da escala).
