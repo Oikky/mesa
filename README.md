@@ -37,10 +37,10 @@ tablet › menu › **Instalar app**. Não precisa instalar certificado. Pra con
 
 Se o Windows perguntar do firewall na primeira vez, permitir em **rede privada**.
 
-**Parear (uma vez por tablet):** na primeira vez a Mesa pede um código. No **próprio PC**, abrir
-<http://127.0.0.1:8070> e digitar no tablet o código que aparece lá (tipo `ABCD-EFGH`). Sem ele o
-PC não aceita comando nenhum. O código fica em `config/pair.txt`: apagar e reiniciar a Mesa gera
-outro (e todo tablet precisa parear de novo).
+**Código do tablet (opcional, desligado por padrão):** vale ligar em Wi-Fi com outras pessoas. No
+**próprio PC**, abrir <http://127.0.0.1:8070> › passo 4 › **Ligar código**. Daí cada tablet pede o
+código uma vez (tipo `ABCD-EFGH`, aparece nessa página); sem ele o PC não aceita comando nenhum.
+Desligar e ligar de novo gera outro código (e todo tablet precisa digitar de novo).
 
 ### Extensão do navegador (opcional, recomendada)
 

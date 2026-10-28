@@ -33,8 +33,8 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       o app dele (developer.spotify.com, redirect `http://127.0.0.1:8070/spotify/callback`).
 
 ## Próximo
-- [ ] **Parear o tablet de verdade**: no notebook abrir http://127.0.0.1:8070 (passo 4 mostra o código),
-      digitar no tablet. Avisar o Luiz: depois do Atualizar ele vê a tela "Parear com o notebook" e faz o mesmo no PC dele.
+- [ ] Avisar o Luiz: existe o código do tablet opcional (desligado por padrão); se quiser, liga em
+      http://127.0.0.1:8070 no PC dele, passo 4.
 - [ ] Testar volume por aba de verdade (depois de recarregar a extensão): duas abas tocando, sub-faders,
       painel do Edge, mute nativo, aba com WebAudio (jogo de navegador), Spotify Web.
 - [ ] Conferir no Discord se o volume das pessoas bate (a call real veio com 200 = máximo da escala).
@@ -61,9 +61,13 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       aparecer o que tocou antes (permissão nova `user-read-recently-played`).
 
 ## Feito (resumo)
-- 27/10/2026: pareamento do tablet (`server/pairing.py`): código em `config/pair.txt`, mostrado só no
-  notebook (http://127.0.0.1:8070), tablet guarda num cookie; sem ele o /ws e as imagens recusam. Origin
-  checado no /ws e no /pair; endpoints da extensão recusam sites; /padbg e /icon só servem imagens.
+- 27/10/2026: polimento do A/B: nome dos pads sempre embaixo e no tamanho do pad (quebra em 2 linhas
+  em vez de cortar), pontinhos do "tocando agora" no topo da capa no A, painel em pé menor (27%) pra
+  dar curso aos faders.
+- 27/10/2026: código do tablet **opcional** (`server/pairing.py`, desligado por padrão; liga/desliga em
+  http://127.0.0.1:8070, passo 4; ligado = `config/pair.txt`). Ligado, o tablet digita uma vez e guarda
+  num cookie. Sempre valem: Origin checado no /ws e /pair, endpoints da extensão recusam sites,
+  /padbg e /icon só servem imagens.
 - 27/10/2026: vibe-coding-toolkit (prompt 12) aplicado: `Checar.bat` (ruff + 21 testes pytest + ESLint),
   `docs/quality.md` e `docs/setup.md`, Graphify (grafo do código, fora do git), uv e RTK instalados,
   revisão de segurança de base (privada). Propostas separadas: quebrar `web/app.js`, winrt 4.x.

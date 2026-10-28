@@ -1327,6 +1327,21 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
 .device[data-layout="e"] .pad { border-radius: 12px; }
 .device[data-layout="e"] .pad .pad-label { font-size: 10.5px; letter-spacing: .08em; }
 .device[data-layout="e"] .pad svg { width: clamp(26px, 3.6vw, 40px); height: clamp(26px, 3.6vw, 40px); }
+/* nome sempre embaixo (igual nos pads com imagem), no tamanho do pad; nome comprido quebra em 2 linhas */
+.device[data-layout="e"] .pad { container-type: inline-size; }
+.device[data-layout="e"] .pad:not(.has-bg) { place-content: stretch; grid-template-rows: minmax(0, 1fr) auto; gap: 0; padding-bottom: 9px; }
+.device[data-layout="e"] .pad:not(.has-bg) svg { align-self: center; translate: 0 4px; }
+.device[data-layout="e"] .pad .pad-label {
+  font-size: clamp(9px, 7.4cqi, 12px); letter-spacing: .06em; padding: 0 6px;
+  white-space: normal; text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+/* A: os pontinhos dos apps vão pro topo da capa, longe do nome do artista */
+.device[data-layout="e"]:not([data-deck="b"]) .lcd-dots { top: 10px; bottom: auto; }
+/* em pé o painel cede espaço: fader com curso de verdade */
+@media (orientation: portrait) {
+  .device[data-layout="e"]:not(.no-panel) { --ph: 27%; }
+}
 
 /* ---------- bancos dos faders: os mics ficam "em cima"; arrastar pra baixo traz eles descendo */
 .device[data-layout="e"] .strips-mic { transform: translateY(-104%); }

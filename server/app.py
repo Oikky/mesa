@@ -317,7 +317,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 def paired(conn):
-    return pairing.ok(conn.cookies.get(pairing.COOKIE))
+    return not pairing.enabled() or pairing.ok(conn.cookies.get(pairing.COOKIE))
 
 
 def own_origin(conn):
@@ -494,6 +494,8 @@ async def pair(req: Request):
         code = (await req.json()).get("code")
     except (ValueError, AttributeError):
         code = ""
+    if not pairing.enabled():
+        return Response(status_code=204)
     async with pair_lock:  # um palpite por vez, 1 s de espera por erro: adivinhar leva anos
         if not pairing.ok(code):
             await asyncio.sleep(1)
@@ -577,7 +579,7 @@ async def index(req: Request):
     html = (WEB / "index.html").read_text(encoding="utf-8")
     html = html.replace('href="/styles.css"', f'href="/styles.css?v={v}"').replace('src="/app.js"', f'src="/app.js?v={v}"')
     res = HTMLResponse(html, headers={"Cache-Control": "no-cache"})
-    if paired(req):
+    if pairing.enabled() and paired(req):
         set_pair_cookie(res)  # renova os 400 dias toda vez que o app abre
     return res
 
@@ -606,10 +608,30 @@ setup = FastAPI()
 async def setup_page(req: Request):
     html = (WEB / "setup.html").read_text(encoding="utf-8")
     ip = (lan_ips() or ["127.0.0.1"])[0]
-    # o código só aparece no próprio notebook: quem está na rede vê só as instruções
-    pair = (f"<code class='pair'>{pairing.pretty()}</code>" if local_only(req)
-            else "<p class='path'>Abra esta página no próprio notebook pra ver o código.</p>")
+    # o código (e a chave de ligar/desligar) só aparecem no próprio notebook
+    if not local_only(req):
+        pair = "<p class='path'>Abra esta página no próprio notebook pra ver ou mudar.</p>"
+    elif pairing.enabled():
+        pair = (f"<p>Ligado. Código deste notebook (não mostre pra ninguém):</p><code class='pair'>{pairing.pretty()}</code>"
+                "<form method='post' action='/pairing'><button class='btn' name='on' value='0'>Desligar código</button></form>")
+    else:
+        pair = ("<p>Desligado: qualquer aparelho que alcance o notebook controla a Mesa.</p>"
+                "<form method='post' action='/pairing'><button class='btn' name='on' value='1'>Ligar código</button></form>")
     return HTMLResponse(html.replace("{{APP_URL}}", f"https://{ip}:{HTTPS_PORT}/").replace("{{PAIR}}", pair))
+
+
+@setup.post("/pairing")
+async def pairing_toggle(req: Request):
+    """Liga/desliga o código (só pela página de setup aberta no próprio notebook)."""
+    if not (req.client and req.client.host in ("127.0.0.1", "::1")
+            and pairing.same_origin(req.headers.get("origin"), req.headers.get("host"))):
+        return Response(status_code=403)
+    on = (await req.body()).decode() == "on=1"
+    if on:
+        pairing.code()
+    else:
+        pairing.disable()
+    return RedirectResponse("/", status_code=303)
 
 
 @setup.get("/mesa-ca.crt")

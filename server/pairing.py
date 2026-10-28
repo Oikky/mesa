@@ -1,7 +1,7 @@
-"""Pareamento do tablet: código secreto gerado na primeira vez (config/pair.txt, fora do git).
+"""Pareamento do tablet (opcional): código secreto em config/pair.txt, fora do git.
 
-A página de setup mostra o código só no próprio notebook; o tablet digita uma vez e guarda num
-cookie. Sem o cookie, o /ws e as rotas que leem arquivos do notebook recusam.
+Desligado por padrão. Liga pela página de setup no próprio notebook, que passa a mostrar o código;
+o tablet digita uma vez e guarda num cookie. Ligado, sem o cookie o /ws e as imagens recusam.
 """
 import hmac
 import secrets
@@ -14,7 +14,16 @@ COOKIE = "mesa_pair"
 MAX_AGE = 400 * 86400  # teto do Chrome; renovado toda vez que o app abre
 
 
+def enabled():
+    return PATH.is_file()
+
+
+def disable():
+    PATH.unlink(missing_ok=True)
+
+
 def code():
+    """Código atual; cria um (e liga o pareamento) se ainda não existir."""
     try:
         c = PATH.read_text(encoding="utf-8").strip()
         if c:
@@ -33,6 +42,8 @@ def pretty():
 
 
 def ok(text):
+    if not enabled():
+        return False
     t = "".join(ch for ch in str(text or "").upper() if ch.isalnum())
     return bool(t) and hmac.compare_digest(t.encode(), code().encode())
 

@@ -35,3 +35,11 @@ def test_endpoints_do_notebook_recusam_sites():
     assert pairing.from_extension(None)
     for site in ("https://site.example", "http://127.0.0.1:8070", "null"):
         assert not pairing.from_extension(site)
+
+
+def test_desligado_por_padrao_e_desligar_apaga_o_codigo():
+    assert not pairing.enabled() and not pairing.ok("QUALQUER")
+    c = pairing.code()
+    assert pairing.enabled() and pairing.ok(c)
+    pairing.disable()
+    assert not pairing.enabled() and not pairing.ok(c)
