@@ -38,7 +38,7 @@ Como a Mesa foi preparada para trabalhar com agentes (Claude Code), o que foi va
 | Caveman | não instalado (decisão) | — | já existe o estilo de saída "Concise" |
 | Context7 | instalado (plugin) | usuário | falta uma consulta de verdade num chat novo |
 | differential-review 1.1.4 | instalado (Trail of Bits) | usuário | usar nas revisões de segurança de diff |
-| RTK 1.1.0 | binário instalado (winget) | usuário | **hook pendente:** `rtk init -g` (bloqueado pela permissão automática) |
+| RTK 1.1.0 | instalado + hook global (`rtk init -g --auto-patch`, 27/10) | usuário | hook e `@RTK.md` uma vez só; ver a saída resumida num chat novo |
 | Graphify 0.9.97 | instalado (`uv tool`) + skill do Claude | usuário + `.graphifyignore` no projeto | grafo só de código: 674 nós, 1353 ligações; `graphify query` testado |
 | uv 0.13.6 | instalado (winget) | usuário | `~/.local/bin` no PATH |
 | Lint/qualidade | ruff + ESLint (avisos) + pytest | projeto | `Checar.bat` passa (ver `docs/quality.md`) |
@@ -75,7 +75,7 @@ Fixture do toolkit em cópias descartáveis no scratchpad, subagentes novos (sem
 Nenhuma falha observada, então nenhuma mudança candidata nas instruções (regra do prompt 15).
 
 ## Pendências e próximo passo
-1. `rtk init -g` no terminal; abrir um chat novo e conferir que Superpowers, Ponytail, Context7 e
+1. Abrir um chat novo e conferir que o RTK resume a saída do `git status` e que Superpowers, Ponytail, Context7 e
    differential-review carregam (fazer uma consulta de verdade no Context7).
 2. Corrigir os achados de segurança (precisa de decisão de produto: como o tablet se identifica).
 3. Propostas separadas: quebrar `web/app.js`; winrt 4.x.

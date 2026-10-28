@@ -16,8 +16,8 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
 - [x] Discord conectado (22/10/2026). Era: criar o app em discord.com/developers (OAuth2: Client ID + Reset Secret, redirect
       `http://127.0.0.1`). Client ID e Secret já no `.env` (22/10); falta conferir o redirect e "Conectar" no painel e aprovar no
       Discord do notebook.
-- [ ] Terminal: `rtk init -g` (hook do RTK; a permissão automática bloqueou). Depois abrir um chat novo e
-      conferir que Superpowers, Ponytail, Context7 e differential-review carregaram (instalados 27/10;
+- [x] Hook do RTK instalado (27/10/2026).
+- [ ] Abrir um chat novo e conferir que o RTK resume o `git status` e que Superpowers, Ponytail, Context7 e differential-review carregaram (instalados 27/10;
       Ponytail: `/plugin configure ponytail@ponytail`). Ver `docs/setup.md`.
 - [ ] **Decidir a correção de segurança** (revisão de 27/10, relatório privado em
       `%LOCALAPPDATA%\security-reviews\`): como o tablet prova que é ele (ex.: código de pareamento).
