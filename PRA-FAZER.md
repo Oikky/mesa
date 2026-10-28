@@ -17,8 +17,7 @@ Ler no início de todo chat. Riscar (`[x]`) o que terminar e anotar a data.
       `http://127.0.0.1`). Client ID e Secret já no `.env` (22/10); falta conferir o redirect e "Conectar" no painel e aprovar no
       Discord do notebook.
 - [x] Hook do RTK instalado (27/10/2026).
-- [ ] Abrir um chat novo e conferir que o RTK resume o `git status` e que Superpowers, Ponytail, Context7 e differential-review carregaram (instalados 27/10;
-      Ponytail: `/plugin configure ponytail@ponytail`). Ver `docs/setup.md`.
+- [x] Plugins carregados e Context7 testado (27/10/2026).
 - [ ] **Decidir a correção de segurança** (revisão de 27/10, relatório privado em
       `%LOCALAPPDATA%\security-reviews\`): como o tablet prova que é ele (ex.: código de pareamento).
 

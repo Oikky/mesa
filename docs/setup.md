@@ -33,12 +33,12 @@ Como a Mesa foi preparada para trabalhar com agentes (Claude Code), o que foi va
 
 | Componente | Estado | Escopo | Evidência / pendência |
 |---|---|---|---|
-| Superpowers 7.0.0 | instalado | usuário | carregamento num chat novo ainda não observado |
-| Ponytail 5.3.2 | instalado | usuário | 4 opções não configuradas (`/plugin configure ponytail@ponytail`); carregamento não observado |
+| Superpowers 7.0.0 | instalado e carregado | usuário | skills aparecem no chat novo (27/10) |
+| Ponytail 5.3.2 | instalado e carregado (nível full) | usuário | opções no padrão, sem webhook (nada sai da máquina) |
 | Caveman | não instalado (decisão) | — | já existe o estilo de saída "Concise" |
-| Context7 | instalado (plugin) | usuário | falta uma consulta de verdade num chat novo |
+| Context7 | instalado, login feito, testado | usuário | consulta real: WebSocket do FastAPI (`/websites/fastapi_tiangolo`), 27/10 |
 | differential-review 1.1.4 | instalado (Trail of Bits) | usuário | usar nas revisões de segurança de diff |
-| RTK 1.1.0 | instalado + hook global (`rtk init -g --auto-patch`, 27/10) | usuário | hook e `@RTK.md` uma vez só; ver a saída resumida num chat novo |
+| RTK 1.1.0 | instalado + hook global (`rtk init -g --auto-patch`, 27/10) | usuário | hook e `@RTK.md` uma vez só; `rtk gain` registrou comandos no chat novo (precisa de terminal aberto depois da instalação, por causa do PATH) |
 | Graphify 0.9.97 | instalado (`uv tool`) + skill do Claude | usuário + `.graphifyignore` no projeto | grafo só de código: 674 nós, 1353 ligações; `graphify query` testado |
 | uv 0.13.6 | instalado (winget) | usuário | `~/.local/bin` no PATH |
 | Lint/qualidade | ruff + ESLint (avisos) + pytest | projeto | `Checar.bat` passa (ver `docs/quality.md`) |
@@ -75,8 +75,6 @@ Fixture do toolkit em cópias descartáveis no scratchpad, subagentes novos (sem
 Nenhuma falha observada, então nenhuma mudança candidata nas instruções (regra do prompt 15).
 
 ## Pendências e próximo passo
-1. Abrir um chat novo e conferir que o RTK resume a saída do `git status` e que Superpowers, Ponytail, Context7 e
-   differential-review carregam (fazer uma consulta de verdade no Context7).
-2. Corrigir os achados de segurança (precisa de decisão de produto: como o tablet se identifica).
-3. Propostas separadas: quebrar `web/app.js`; winrt 4.x.
-4. Ao mudar o código, rodar `graphify update .` (o grafo não se atualiza sozinho).
+1. Corrigir os achados de segurança (precisa de decisão de produto: como o tablet se identifica).
+2. Propostas separadas: quebrar `web/app.js`; winrt 4.x.
+3. Ao mudar o código, rodar `graphify update .` (o grafo não se atualiza sozinho).
