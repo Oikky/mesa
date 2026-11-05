@@ -1228,6 +1228,8 @@ function loadYT() {
   yt.loading = true;
   window.onYouTubeIframeAPIReady = () => {
     yt.player = new YT.Player("yt", {
+      // sem o login do Google: senão o tablet conta como 2º aparelho e o YouTube pausa o notebook
+      host: "https://www.youtube-nocookie.com",
       width: 480, height: 270,
       playerVars: {
         autoplay: 0, mute: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, iv_load_policy: 3,
